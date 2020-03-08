@@ -12,9 +12,12 @@ import FeatherIcons as Icons
 import Pages.Gallery as Gallery
 import Pages.SignUp as SignUp
 import Pages.SignIn as SignIn
+import Pages.Upload as Upload
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
 --import Components.SingUp as SignUp
+
+--97, 113, 181?
 
 --usage - type the following command into terminal (need to install elm-live)
 --elm-live src/Main.elm --open -- --output=elm.js (will start server on localhost)
@@ -49,8 +52,11 @@ type Page
   | Gallery Gallery.Model
   | Forum
   | Profile
+  --under here SignUp (SignUp.Model, Cmd SignUp.Msg)
   | SignUp SignUp.Model
   | SignIn SignIn.Model
+  | Upload Upload.Model
+
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
@@ -68,6 +74,7 @@ type Msg
   | GalleryMsg Gallery.Msg  --converter types
   | SignUpMsg SignUp.Msg
   | SignInMsg SignIn.Msg
+  | UploadMsg Upload.Msg
   | UpdateSearch Search.Msg
   | UpdateCarousel Carousel.Msg
 
@@ -93,8 +100,9 @@ update msg model =
        ({ model | carousel = Carousel.update mesg model.carousel }, Cmd.none)
     SignUpMsg mesg ->
       case model.page of
-        SignUp signup ->
-          ({model | page = SignUp (SignUp.update mesg signup)}, Cmd.none)
+        SignUp signup -> stepSignUp model (SignUp.update mesg signup)
+          --this was not working together with cmd! the other approach works though
+          --({model | page = SignUp (SignUp.update mesg signup)}, Cmd.none)
           --       -> (model, Cmd.none)
         _ -> (model, Cmd.none)
     SignInMsg mesg ->
@@ -106,7 +114,15 @@ update msg model =
       case model.page of
         Gallery gallery -> stepGallery model (Gallery.update mesg gallery)
         _ -> ( model, Cmd.none )
+    UploadMsg mesg ->
+      case model.page of
+        Upload upload -> stepUpload model (Upload.update mesg upload)
+        _ -> ( model, Cmd.none )
 
+
+stepUpload : Model -> (Upload.Model, Cmd Upload.Msg) -> (Model, Cmd Msg)
+stepUpload model ( upload, cmd) = 
+  ({ model | page = Upload upload }, Cmd.map UploadMsg cmd)
 
 stepSignUp : Model -> (SignUp.Model, Cmd SignUp.Msg) -> (Model, Cmd Msg)
 stepSignUp model (signup, cmd) =
@@ -130,8 +146,6 @@ subscriptions model =
     Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
   else
     Sub.none
-  --Sub.none
-
 
 
 -- VIEW
@@ -205,7 +219,20 @@ view model =
         , viewFooter
         ]
       }
+    Upload upload ->
+      { title = "Upload an image"
+      , body = [
+        viewHeader model
+        , div[class "body"][
+         Upload.view upload |> Html.map UploadMsg
+        ]
+        , viewFooter
+        ]
+      }
 
+first: (SignUp.Model, Cmd SignUp.Msg) -> SignUp.Model
+first model =
+  Tuple.first model
 
 viewImage : String -> Int -> Int -> Html msg
 viewImage path w h =
@@ -224,7 +251,7 @@ viewHeader model =
           viewImage "../src/img/Elm_logo.svg.png" 70 70
           ]
           , a [ href "/" ] [ text "Elm prototype" ]--}
-          viewNav{--
+          viewNav model{--
         ]
         , Search.view model.search |> Html.map UpdateSearch
         , div [class "login"][
@@ -234,8 +261,8 @@ viewHeader model =
         ]--}
     ]
 
-viewNav: Html msg
-viewNav = 
+viewNav: Model -> Html Msg
+viewNav model = 
   div [ class "navbar navbar-inverse navbar-fixed-top" ]
     [ 
       div [ class "container-fluid"][
@@ -247,24 +274,47 @@ viewNav =
         , ul [ class "nav navbar-nav"][
             li [] [ a [ href "/" ] [ text "Home"] ]
             , li [] [ a [ href "/gallery" ] [ text "Gallery" ] ]
-            , li [] [ a [href "/gallery" ] [text "Upload Image"] ]
-            , li [] [ a [ href "/forum" ] [ text "Forum" ] ]
-            , li [] [ a [ href "/profile" ] [ text "Profile" ] ]
+            , li [] [ a [href "/upload" ] [text "Upload Image"] ]
+            , li [] [ a [href "/users" ] [text "Users"] ]
+            , li [] [ Search.view model.search |> Html.map UpdateSearch ]
+            --, li [] [ a [ href "/forum" ] [ text "Forum" ] ]
+            --, li [] [ a [ href "/profile" ] [ text "Profile" ] ]
         ]
-        , ul [ class "nav navbar-nav navbar-right"][
+        
+        , ul [ class "nav navbar-nav navbar-right" ][
             li [] [ a [ href "/sign_in"] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
             , li [] [ a [ href "/sign_up"] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
           ]
-      ]
+        
+        {--
+        , ul [ style "margin-top" "7px", class "nav navbar-nav navbar-right" ][
+             li [] [ img [ class "avatar", src "../src/img/Elm_logo.svg.png", width 35, height 35 ] [] ] 
+             , li [ style "margin-top" "7px"
+                  , style "margin-left" "5px" ] 
+                  [ span [ class "glyphicon glyphicon-menu-hamburger"
+                         , style "color" "grey" ] [] 
+             ]
+        ] --}
+      ] 
     ]
 
 viewBody: Model -> Html Msg
 viewBody model =
-  div [ class "body" ]
-  [
-    h2[][text "Welcome to my website"]
-    , p[][text "Loourem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sed condimentum risus, congue dignissim augue. Nulla rhoncus ullamcorper luctus. Ut enim felis, tincidunt at euismod vel, consequat a diam. Donec eu egestas urna. Vivamus arcu nisi, eleifend sed turpis id, faucibus varius lectus. Integer viverra quis est sed vulputate. Quisque lacinia sagittis mollis. Nulla facilisi. Integer arcu augue, sollicitudin id ultricies a, sagittis nec dui. Nulla quis justo mattis, sagittis nisl et, auctor mauris. Mauris ac metus in neque blandit euismod. Duis quam elit, congue sed egestas ornare, euismod id lectus. Integer eget tortor a erat semper facilisis. Aliquam erat volutpat. Nulla sollicitudin, ante nec semper pharetra, nisl arcu aliquam sapien, a eleifend magna turpis eu sapien. Fusce ullamcorper dictum purus, sed faucibus tellus euismod quis. Cras vestibulum, ipsum quis cursus dictum, enim orci venenatis est, et aliquet odio est sit amet ante. Nam erat eros, efficitur id sodales id, egestas nec lacus. Maecenas vulputate tincidunt elit, a lobortis dolor molestie id. Vestibulum eu sagittis quam. Vivamus felis nisi, rhoncus quis fermentum id, lobortis a ipsum. Ut celerisque viverra venenatis. Maecenas porta aliquet urna non ullamcorper. Mauris nec faucibus arcu. Aenean mattis ornare hendrerit. Praesent ut sem ex. Cras lobortis dapibus bibendum. Nam malesuada pulvinar sem, eu aliquam sem dignissim molestie. Morbi lobortis ultrices quam id laoreet. Nam ullamcorper quam egestas risus aliquet, ut pretium ante suscipit. Suspendisse neque lacus, aliquet non sem nec, sagittis aliquet massa. Donec vel odio erat. Proin venenatis, arcu id mollis tincidunt, mi nunc facilisis dui, finibus blandit arcu justo vel purus. Nullam mollis orci vitae augue ultricies tempus. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Sed at tempus urna. Ut vitae placerat sapien."]
-    , div[class "carousel"][Carousel.view model.carousel |> Html.map UpdateCarousel]
+  div [ ] [
+    div [ class "container-fluid text-center", style "background-color" " #1abc9c", style "height" "800px" ][
+      h1 [ style "margin-top" "100px", style "color" "white" ] [ text "Welcome to my website" ]
+    ]
+  {--
+    div [ class "jumbotron"
+          , style "height" "1000px" 
+          , style "text-align" "center"
+          , style "padding-top" "100px" 
+          , style "width" "100%" ][
+            h1 [][ text "Welcome to my website"]
+            , p [] [ text "Powered by Elm. This website was created as a project for my bachelor's thesis" ]
+            , div [ class "carousel" ][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
+    ]
+    --}
   ]
 
 --viewSignUpForm: Model -> Html Msg
@@ -272,17 +322,15 @@ viewBody model =
 
 viewFooter: Html Msg
 viewFooter =
-  div[style "background-color" "white"
-  , style "height" "100px"
-  , style "text-align" "center"
-  , style "padding-top" "35px"
-  , class "footer"]
+  div [style "background-color" "white"
+      , style "height" "200px"
+      , style "text-align" "center"
+      , style "color" "white"
+      , style "padding-top" "100px"
+      , style "background-color" "#2f2f2f"
+      , class "container-fluid text-center"]
   [ text "© 2019 Juraj Bedej   "
-  , a [ href "https://github.com/jaruji?tab=repositories"] [ text "Github"
-    --Icons.github
-    --|> Icons.withSize 20
-    --|> Icons.toHtml []
-    ]
+  , a [ href "https://github.com/jaruji?tab=repositories"] [ text "Github"]
   ]
 
 --Router
@@ -306,6 +354,9 @@ stepUrl url model =
             )
           , route (s "sign_in")
             ( stepSignIn model (SignIn.init)
+            )
+          , route (s "upload")
+            ( stepUpload model (Upload.init)
             )
         ]
   in 

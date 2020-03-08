@@ -4,10 +4,12 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput, onClick)
-import Http
+import Http exposing (..)
 import Email
-import Json.Decode exposing (list, string)
-
+import Json.Decode as Decode exposing (list, field, string)
+import Json.Encode as Encode exposing (..)
+import Loading as Loader
+import Crypto.Hash as Crypto
 
 
 
@@ -19,13 +21,16 @@ type alias Model =
   , password : String
   , passwordAgain : String
   , email : String
+  --, submit : Bool
   , warning : String
+  , status : Status
+  , hash : String
   }
 
 
 init : (Model, Cmd Msg)
 init =
-  (Model "" "" "" "" "", Cmd.none)
+  (Model "" "" "" "" "" Loading "", Cmd.none)
 
 
 
@@ -39,58 +44,55 @@ type Msg
   | Email String
   | Warning String
   | Submit
-  | Loading
-  | Result (Result Http.Error (List String))
+  | Response (Result Http.Error String)
 
+type Status
+  = Loading
+  | Failure Http.Error
+  | Success String
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     Name name ->
-      { model | name = name }
+      ({ model | name = name }, Cmd.none)
 
     Password password ->
-      { model | password = password }
+      ({ model | password = password }, Cmd.none)
 
     PasswordAgain password ->
-      { model | passwordAgain = password }
+      ({ model | passwordAgain = password }, Cmd.none)
   
     Email email ->
-      { model | email = email }
+      ({ model | email = email }, Cmd.none)
 
     Warning error ->
-      { model | warning = error }
+      ({ model | warning = error }, Cmd.none)
 
     Submit ->
       if model.name == "" then
-        {model | warning = "Enter your username"}
+        ({model | warning = "Enter your username"}, Cmd.none)
       else if validateUsername model.name == False then
-        {model | warning = "Username is already used"}
+        ({model | warning = "Username is already used"}, Cmd.none)
       else if validateEmail model.email == Nothing then
-        {model | warning = "Enter a valid e-mail address"}
+        ({model | warning = "Enter a valid e-mail address"}, Cmd.none)
       else if model.password == "" then
-        {model | warning = "Enter your password"}
+        ({model | warning = "Enter your password"}, Cmd.none)
       else if len model.password == False then
-        {model | warning = "Password is too short"}
+        ({model | warning = "Password is too short"}, Cmd.none)
       else if model.passwordAgain == "" then
-        {model | warning = "Enter your password again"}
+        ({model | warning = "Enter your password again"}, Cmd.none)
       else if validatePassword model.password model.passwordAgain == False then
-        {model | warning = "Passwords do not match"}
+        ({model | warning = "Passwords do not match"}, Cmd.none)
       else
-        (model)
-        {--
-        Http.post {url = "http://localhost:8000/sign_up"
-                  , body = Http.emptyBody
-                  , expect = Http.expectJson Result (list string)}
-        --{model | warning = "Signing up..."
-        {--, Http.post "http://localhost:8000/sign_up"--}
-        --}
-
-    Loading ->
-      (model)
-
-    Result _->
-      (model)
+        ({model | warning = "Loading"}, post model )
+   
+    Response response ->
+      case response of
+        Ok string ->
+          ( {model | status = Success string}, Cmd.none )
+        Err log ->
+          ( {model | status = Failure log}, Cmd.none )
 -- VIEW
 
 
@@ -100,8 +102,13 @@ view model =
   [ 
     h2 [ class "text-center" ] [ text "Create an Account" ]
     , div [ class "help-block", style "padding-bottom" "10px" ] [
-      text "Password need to be at least 7 characters long"
+      text "Already have an account?"
+      , a [ href "/sign_in", style "margin-left" "5px" ] [ text "Sign In" ]
     ]
+    {--
+    , div [ class "help-block", style "padding-bottom" "10px" ] [
+      text "Password need to be at least 7 characters long"
+    ]--}
     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
         div [ class "col-md-offset-2 col-md-8" ] [
           case validateUsername model.name of
@@ -181,14 +188,32 @@ view model =
     ]
     , case model.warning of
         "" ->
-          div[] [
-          ]
+          div[][text (Crypto.sha256 model.password)]
+        "Loading" ->
+          case model.status of
+            Loading ->
+              div[ class "alert alert-info", style "margin-top" "15px" ] [
+                Loader.render Loader.Circle Loader.defaultConfig Loader.On
+                ,text model.warning
+              ]
+            Failure err ->
+              div[ class "alert alert-warning", style "margin-top" "15px" ] [
+                text (toString err)
+              ]
+            Success resp ->
+              div[ class "alert alert-success", style "margin-top" "15px" ] [
+                text resp
+              ]
         _ ->
           div[ class "alert alert-warning", style "margin-top" "15px" ] [
             text model.warning
           ]
   ]
 
+
+resetButton : Model -> Model
+resetButton model =
+  { model | status = Loading }
 
 len : String -> Bool
 len pass =
@@ -215,3 +240,42 @@ validateUsername username =
     True
   else
     False
+
+userEncoder : Model -> Encode.Value
+userEncoder model =
+  Encode.object 
+  --send and stored HASHED password on server (security). During login, all attempts will
+  --also be hashed and compared to the account password stored on the server
+    [ ( "username", Encode.string model.name )
+    , ( "password", Encode.string (Crypto.sha256 model.password) )
+    , ( "email", Encode.string model.email )
+    ]
+
+post : Model -> Cmd Msg
+post model =
+  Http.post {url = "http://localhost:3000/sign_up"
+            , body = Http.emptyBody
+            --, body = Http.jsonBody <| userEncoder model 
+            --, body = Http.stringBody "application/json" "Hello world"
+            -- I actually dont get this trash, why does empty work but others dont?
+            , expect = Http.expectJson Response (field "response" Decode.string)}
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Sub.none
+
+toString : Http.Error -> String
+toString err =
+--convert Http.Error type to String, used for debugging potential connection issues
+    case err of
+        Timeout ->
+            "Timeout exceeded"
+
+        NetworkError ->
+            "Network error"
+
+        BadUrl url ->
+            "Bad url"
+
+        _ -> 
+          "Something else?"

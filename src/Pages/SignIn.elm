@@ -5,8 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput, onClick)
 import Http
-
-
+import Loading
 
 
 -- MODEL
@@ -16,11 +15,12 @@ type alias Model =
   { name : String
   , password : String
   , warning : String
+  , status : Session
   }
 
 init : (Model, Cmd Msg)
 init =
-  (Model "" "" "", Cmd.none)
+  (Model "" "" "" Anonymous, Cmd.none)
 
 
 
@@ -31,6 +31,13 @@ type Msg
   = Name String
   | Password String
   | Submit
+  | Status Session  
+
+
+type Session
+  = Anonymous
+  | LoggedIn
+
 
 
 update : Msg -> Model -> Model
@@ -49,6 +56,9 @@ update msg model =
         {model | warning = "Enter your password"}
       else
         {model | warning = "Incorrect username or password"}
+
+    Status session ->
+      {model | status = session}
 
 
 
@@ -107,6 +117,7 @@ view model =
     , case model.warning of
         "" ->
           div[] [
+            --Loading.render Loading.Circle Loading.defaultConfig Loading.On
           ]
         _ ->
           div[ class "alert alert-warning", style "margin-top" "15px" ] [

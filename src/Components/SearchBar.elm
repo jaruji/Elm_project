@@ -65,18 +65,21 @@ keyPress tagger =
 --View
 view :  Model -> Html Msg
 view model =
-    div [class "searchBar"][
-      input [ placeholder "Search", value model.searchValue
+    div [ class "form-inline", style "margin-top" "10px" ][
+      input [ class "form-control"
+      , type_ "text"
+      , placeholder "Search"
+      , value model.searchValue
       , onInput UpdateValue
-      , keyPress KeyHandler
+      , keyPress KeyHandler ] []
+      , span[ style "margin-top" "10px"
+            , style "color" "grey"
+            , class "glyphicon glyphicon-search form-control-feedback"
+            , onClick Submit ][]
       --, onFocus ()
-      ] []
-      , button [onClick Submit][Icons.search
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []
-        ]
+      --, button [ class "btn-primary", onClick Submit ][ text "Search" ]
       --, div[][text ("Currently searching: " ++ model.searchValue)]
-      , div[][text ("Submitted search: " ++ getValue model)]
+      --, div[][text ("Submitted search: " ++ getValue model)]
     ]
 
 
