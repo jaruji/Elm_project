@@ -3,10 +3,26 @@
   <head>
     <meta charset="UTF-8">
     <link
-      rel="stylesheet"
+      rel="stylesheet"  
       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <script type="text/javascript" src="/elm.js"></script>
     <style>
+      .image-box {
+        margin: auto;
+        overflow: hidden;
+        width: 300px;
+      }
+      .image-box img {
+        max-width: 100%;
+        transition: all 1.5s;
+        display: block;
+        width: 100%;
+        height: auto;
+        transform: scale(1);
+      }
+      .image-box:hover img {
+        transform: scale(1.2);
+      }   
       .avatar {
         border-radius: 50%;
         opacity: 0.9;

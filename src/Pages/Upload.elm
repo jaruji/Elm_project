@@ -29,6 +29,8 @@ type Msg
   | DragLeave
   | GotFiles File (List File)
   | GotPreviews (List String)
+  | Response (Result Http.Error())
+  | Upload File
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -51,14 +53,25 @@ update msg model =
 
     GotFiles file files ->
       ( { model | hover = False }
-      , Task.perform GotPreviews <| Task.sequence <|
-          List.map File.toUrl (file :: files)
+      , --Task.perform GotPreviews <| Task.sequence <|
+          --List.map File.toUrl (file :: files)
+        put file
       )
 
     GotPreviews urls ->
       ( { model | previews = urls }
       , Cmd.none
       )
+
+    Upload file ->
+      (model, put file)
+
+    Response response ->
+      case response of
+        Ok string ->
+          (model, Cmd.none)
+        Err log ->
+          (model, Cmd.none)
 
 
 
@@ -75,43 +88,43 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-  div
-    [ style "border" (if model.hover then "6px dashed purple" else "6px dashed #ccc")
-    , style "border-radius" "20px"
-    , style "width" "480px"
-    , style "margin" "100px auto"
-    , style "padding" "40px"
-    , style "display" "flex"
-    , style "flex-direction" "column"
-    , style "justify-content" "center"
-    , style "align-items" "center"
-    , hijackOn "dragenter" (Decode.succeed DragEnter)
-    , hijackOn "dragover" (Decode.succeed DragEnter)
-    , hijackOn "dragleave" (Decode.succeed DragLeave)
-    , hijackOn "drop" dropDecoder
-    ]
-    [ button [ class "btn-primary", onClick Pick ] [ text "Select image" ]
+  div[ style "text-align" "center" ][
+    h1 [] [ text "Upload an image to our site"]
     , div
-        [ style "display" "flex"
-        , style "align-items" "center"
-        , style "height" "60px"
-        , style "padding" "20px"
-        ]
-        (List.map viewPreview model.previews)
+      [ style "border" (if model.hover then "6px dashed #2E86C1" else "6px dashed #ccc")
+      , style "border-radius" "20px"
+      , style "width" "480px"
+      , style "margin" "100px auto"
+      , style "padding" "40px"
+      , style "display" "flex"
+      , style "flex-direction" "column"
+      , style "justify-content" "center"
+      , style "align-items" "center"
+      , hijackOn "dragenter" (Decode.succeed DragEnter)
+      , hijackOn "dragover" (Decode.succeed DragEnter)
+      , hijackOn "dragleave" (Decode.succeed DragLeave)
+      , hijackOn "drop" dropDecoder
+      ]
+      [ button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
+      , div [ class "help-block" ] [ text "Drag and Drop an image here" ]
+      , div
+          [ style "display" "flex"
+          , style "align-items" "center"
+          , style "height" "60px"
+          , style "padding" "20px"
+          ]
+          (List.map viewPreview model.previews)
+      ]
+      , button [ class "btn btn-primary" ] [ text "Upload" ] 
     ]
 
 
 viewPreview : String -> Html msg
 viewPreview url =
-  div
-    [ style "width" "60px"
-    , style "height" "60px"
-    , style "background-image" ("url('" ++ url ++ "')")
-    , style "background-position" "center"
-    , style "background-repeat" "no-repeat"
-    , style "background-size" "contain"
+  div []
+    [ 
+      img [src url, style "text-align" "center"] []
     ]
-    []
 
 
 dropDecoder : Decode.Decoder Msg
@@ -127,3 +140,15 @@ hijackOn event decoder =
 hijack : msg -> (msg, Bool)
 hijack msg =
   (msg, True)
+
+put : File -> Cmd Msg
+put file = 
+  Http.request
+    { method = "PUT"
+    , headers = [ Http.header "Accept" "image/*", Http.header "Content-Type" "image/*" ]
+    , url = "http://localhost:3000/upload"
+    , body = Http.fileBody file
+    , expect = Http.expectWhatever Response
+    , timeout = Nothing
+    , tracker = Nothing
+    }

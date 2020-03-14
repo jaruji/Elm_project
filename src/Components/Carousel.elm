@@ -1,15 +1,11 @@
 module Components.Carousel exposing (..)
--- module Components.Carousel exposing(..)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import FeatherIcons as Icons
---import Animation exposing (px)
 import Task
 import Time exposing (..)
-
---TODO: po vyprsani casu sa bude carousel sam pohybovat = DONE
 
 --Model
 

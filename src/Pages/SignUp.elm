@@ -1,6 +1,7 @@
 module Pages.SignUp exposing (..)
 
 import Browser
+import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput, onClick)
@@ -24,13 +25,14 @@ type alias Model =
   --, submit : Bool
   , warning : String
   , status : Status
-  , hash : String
+  , verification: String
+  , key : Nav.Key
   }
 
 
-init : (Model, Cmd Msg)
-init =
-  (Model "" "" "" "" "" Loading "", Cmd.none)
+init : (Nav.Key) -> (Model, Cmd Msg)
+init key =
+  (Model "" "" "" "" "" Loading "" key, Cmd.none)
 
 
 
@@ -43,6 +45,7 @@ type Msg
   | PasswordAgain String
   | Email String
   | Warning String
+  | Verification String
   | Submit
   | Response (Result Http.Error String)
 
@@ -85,7 +88,7 @@ update msg model =
       else if validatePassword model.password model.passwordAgain == False then
         ({model | warning = "Passwords do not match"}, Cmd.none)
       else
-        ({model | warning = "Loading"}, post model )
+        ({model | status = Loading,  warning = "Loading"}, Cmd.batch [post model,  Nav.pushUrl model.key ("/sign_in")] )
    
     Response response ->
       case response of
@@ -93,6 +96,9 @@ update msg model =
           ( {model | status = Success string}, Cmd.none )
         Err log ->
           ( {model | status = Failure log}, Cmd.none )
+
+    Verification code ->
+      ( {model | verification = code}, Cmd.none )
 -- VIEW
 
 
@@ -105,10 +111,6 @@ view model =
       text "Already have an account?"
       , a [ href "/sign_in", style "margin-left" "5px" ] [ text "Sign In" ]
     ]
-    {--
-    , div [ class "help-block", style "padding-bottom" "10px" ] [
-      text "Password need to be at least 7 characters long"
-    ]--}
     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
         div [ class "col-md-offset-2 col-md-8" ] [
           case validateUsername model.name of
@@ -188,7 +190,7 @@ view model =
     ]
     , case model.warning of
         "" ->
-          div[][text (Crypto.sha256 model.password)]
+          div[][]
         "Loading" ->
           case model.status of
             Loading ->
@@ -200,9 +202,9 @@ view model =
               div[ class "alert alert-warning", style "margin-top" "15px" ] [
                 text (toString err)
               ]
-            Success resp ->
+            Success _ ->
               div[ class "alert alert-success", style "margin-top" "15px" ] [
-                text resp
+                --viewVerify model
               ]
         _ ->
           div[ class "alert alert-warning", style "margin-top" "15px" ] [
@@ -210,6 +212,23 @@ view model =
           ]
   ]
 
+viewVerify: Model -> Html Msg
+viewVerify model =
+  div [ class "form-horizontal fade in", id "form", style "margin" "auto", style "width" "75%" ] [
+    h2 [ class "text-center" ] [ text "Complete your registration" ]
+    , div [ class "help-block" ] [ text ("We sent an e-mail to " ++ model.email) ]
+    , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+        div [ class "col-md-offset-2 col-md-8" ] [
+          div[][ 
+                div[ class "form-group" ][
+                  label [ for "verify" ] [ text "Enter the received code:" ]
+                  , input [ id "verify", type_ "text", class "form-control", Html.Attributes.value model.verification, onInput Verification ] []
+                  , button [ class "btn btn-primary", style "margin-top" "10px" ][ text "Verify" ]
+                ]
+          ]
+        ]
+    ]
+  ]
 
 resetButton : Model -> Model
 resetButton model =
@@ -234,6 +253,18 @@ validateEmail email =
     Email.fromString email
 
 
+usernameEncoder : String -> Encode.Value
+usernameEncoder name =
+  Encode.object
+  [ ( "username", Encode.string name )
+  ]
+
+emailEncoder : String -> Encode.Value
+emailEncoder email =
+  Encode.object
+  [ ( "email", Encode.string email )
+  ]
+
 validateUsername : String -> Bool
 validateUsername username = 
   if username /= "" then
@@ -252,13 +283,27 @@ userEncoder model =
     ]
 
 post : Model -> Cmd Msg
-post model =
-  Http.post {url = "http://localhost:3000/sign_up"
+post model = 
+  Http.request
+    { method = "POST"
+    --, headers = [ Http.header "Access-Control-Allow-Headers" "X-Requested-With", Http.header "Access-Control-Allow-Origin" "*"]
+    , headers = []
+    , url = "http://localhost:3000/sign_up"
+    --, url = "http://httpbin.org/post"
+    , body = Http.jsonBody <| userEncoder model 
+    , expect = Http.expectJson Response (field "response" Decode.string)
+    , timeout = Nothing
+    , tracker = Nothing
+    }
+
+  {--
+  Http.post { url = "http://localhost:3000/sign_up"
             , body = Http.emptyBody
             --, body = Http.jsonBody <| userEncoder model 
             --, body = Http.stringBody "application/json" "Hello world"
             -- I actually dont get this trash, why does empty work but others dont?
             , expect = Http.expectJson Response (field "response" Decode.string)}
+  --}
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -277,5 +322,8 @@ toString err =
         BadUrl url ->
             "Bad url"
 
-        _ -> 
-          "Something else?"
+        BadStatus s -> 
+          "Bad status"
+
+        BadBody s ->
+          "Bad body : " ++ s

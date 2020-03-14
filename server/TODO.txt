@@ -1,0 +1,19 @@
+- somehow make it so singing in changes the state of navbar, loads a profile
+- add the live validation of username/email
+- rework the upload function and transfer it to components, add upload to server
+- upload page - image title, tags, category, ....
+- image preview - upvote, downvote, favorite?, leave a comment (only signed in users)
+- server-side: store images to files, while loading gallery send a list of image urls, add activity logging - log image upload and log every log in - time and ip address?
+- add profile settings - preferences (color,2factor auth, security?-like what info is public and whatnot), settings (additional info, change profile picture, change password?)
+- add abilty to log out! also to see uploaded pics. So profile dropdowns has 2 basic subcategories! -> Settings and Log Out. Use the cog wheel that extends after onClick event occurs. Abilty to remove uploaded pictures by pressing a x and confirming through a modal window popup?
+- add option to lookup user profiles and see their public info / posted images?
+- add activity diagram (based on logs, see your activity during the month - drawn by
+terezka/line-diagram)? Could be cool, would be at profile tab! like github! Use tabs from bootstrap to make it look pretty!
+- search bar can show last 5 searches in a dropdown! Or show the closest (max 5) suggestions based on your live input (will compare with image titles stored in mongodb and real time compare, very simillar to the username/email validation)
+- add contact info to footer and link to source code!
+- also fix the ability to load the page in a different state than initial!! important af
+
+-could be all :) then testing and writing up the necessary text, and all should be gucci
+-probably will be more than enough for my bachelor-thesis
+
+-fucking hell, that is a lot of work

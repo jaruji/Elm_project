@@ -1,12 +1,16 @@
 module Pages.SignIn exposing (..)
 
 import Browser
+import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
+import Html.Events exposing (onInput, onClick, onMouseEnter)
 import Http
-import Loading
-
+import Json.Encode as Encode exposing (..)
+import Json.Decode as Decode exposing (list, field, string)
+import Loading as Loader
+import Crypto.Hash as Crypto
+import Session
 
 -- MODEL
 
@@ -15,12 +19,15 @@ type alias Model =
   { name : String
   , password : String
   , warning : String
-  , status : Session
+  , session : Session.Model
+  , status : Status
+  , serverResponse : String
+  , key : Nav.Key
   }
 
-init : (Model, Cmd Msg)
-init =
-  (Model "" "" "" Anonymous, Cmd.none)
+init : Nav.Key -> (Model, Cmd Msg)
+init key =
+  (Model "" "" "" Session.init Loading "" key, Cmd.none)
 
 
 
@@ -31,36 +38,48 @@ type Msg
   = Name String
   | Password String
   | Submit
-  | Status Session  
+  | Response (Result Http.Error String)
 
-
-type Session
+{--
+type Session --session
   = Anonymous
   | LoggedIn
+--}
+ 
+type Status --status when logging in
+  = Loading
+  | Failure Http.Error
+  | Success String
 
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg)
 update msg model =
   case msg of
     Name name ->
-      { model | name = name }
+      ( { model | name = name }, Cmd.none )
 
     Password password ->
-      { model | password = password }
+      ( { model | password = password }, Cmd.none )
 
     Submit ->
       if model.name == "" then
-        {model | warning = "Enter your username"}
+        ( {model | warning = "Enter your username"}, Cmd.none )
       else if model.password == "" then
-        {model | warning = "Enter your password"}
+        ( {model | warning = "Enter your password"}, Cmd.none )
       else
-        {model | warning = "Incorrect username or password"}
+        ( {model | status = Loading,  warning = "Loading"}, post model )  --Nav.pushUrl model.key ("/"))
 
-    Status session ->
-      {model | status = session}
-
-
+    Response response ->
+      case response of
+        Ok string ->
+          case string of
+            "OK" ->
+              ( {model | status = Success string, serverResponse = string, session = Session.login model.session model.name }, Nav.pushUrl model.key ("/") )
+            _ ->
+              ( { model | status = Success string, serverResponse = string }, Cmd.none )
+        Err log ->
+          ( {model | status = Failure log}, Cmd.none )
 
 -- VIEW
 
@@ -107,18 +126,25 @@ view model =
         ]
     ]
     , button[ class "btn btn-primary", style "margin" "auto", onClick Submit ][ text "Sign in" ]
-    {--
-    , case model.password of
-        "cuck" ->
-          a [ href "/sign_up" ] [ text "It works 5Head" ]
-        _ ->
-          a [ href "/sign_up", style "padding-left" "15px" ] [ text "Don't have an account?" ]
-    --}
     , case model.warning of
+        "Loading" ->
+          case model.status of
+            Loading ->
+              div[ class "alert alert-info", style "margin-top" "15px" ] [
+                Loader.render Loader.Circle Loader.defaultConfig Loader.On
+                ,text model.warning
+              ]
+            Failure err ->
+              div[ class "alert alert-warning", style "margin-top" "15px" ] [
+                text "Error"
+              ]
+            Success _ ->
+              --ak sa dostaneme do tejto vetvy bez presmerovania, bolo zadane zle meno/heslo 
+              div [ class "alert alert-warning", style "margin-top" "15px" ] [
+                text "Incorrect username or password"
+              ]
         "" ->
-          div[] [
-            --Loading.render Loading.Circle Loading.defaultConfig Loading.On
-          ]
+          div [] []
         _ ->
           div[ class "alert alert-warning", style "margin-top" "15px" ] [
             text model.warning
@@ -133,10 +159,29 @@ viewInput t p v toMsg =
     , input [ class "form-control", class "col-md-offset-2 col-md-8", type_ t, placeholder p, value v, onInput toMsg ] []
   ]
 
-
 viewValidation : Model -> Html msg
 viewValidation model =
   if model.password == model.name then
     div [ style "color" "green" ] [ text "OK" ]
   else
     div [ style "color" "red" ] [ text "Passwords do not match!" ]
+
+accountEncoder : Model -> Encode.Value
+accountEncoder model =
+  Encode.object 
+    [ ( "username", Encode.string model.name )
+    , ( "password", Encode.string (Crypto.sha256 model.password) )
+    ]
+
+post : Model -> Cmd Msg
+post model =
+  Http.request
+    { method = "POST"
+    , headers = []
+    , url = "http://localhost:3000/validate"
+    --, url = "http://httpbin.org/post"
+    , body = Http.jsonBody <| accountEncoder model 
+    , expect = Http.expectJson Response (field "response" Decode.string)
+    , timeout = Nothing
+    , tracker = Nothing
+    }
