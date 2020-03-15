@@ -27,12 +27,14 @@ type alias Model =
   , status : Status
   , verification: String
   , key : Nav.Key
+  , errorUsername: Bool
+  , errorEmail: Bool
   }
 
 
 init : (Nav.Key) -> (Model, Cmd Msg)
 init key =
-  (Model "" "" "" "" "" Loading "" key, Cmd.none)
+  (Model "" "" "" "" "" Loading "" key False False, Cmd.none)
 
 
 
@@ -48,6 +50,8 @@ type Msg
   | Verification String
   | Submit
   | Response (Result Http.Error String)
+  | UsernameResponse (Result Http.Error String)
+  | EmailResponse (Result Http.Error String)
 
 type Status
   = Loading
@@ -58,7 +62,7 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     Name name ->
-      ({ model | name = name }, Cmd.none)
+      ({ model | name = name }, checkUsername name)
 
     Password password ->
       ({ model | password = password }, Cmd.none)
@@ -67,7 +71,7 @@ update msg model =
       ({ model | passwordAgain = password }, Cmd.none)
   
     Email email ->
-      ({ model | email = email }, Cmd.none)
+      ({ model | email = email }, checkEmail email)
 
     Warning error ->
       ({ model | warning = error }, Cmd.none)
@@ -76,9 +80,13 @@ update msg model =
       if model.name == "" then
         ({model | warning = "Enter your username"}, Cmd.none)
       else if validateUsername model.name == False then
-        ({model | warning = "Username is already used"}, Cmd.none)
+        ({model | warning = "Username must be longer"}, Cmd.none)
+      else if model.errorUsername == True then
+        ({model | warning = "Username is already taken"}, Cmd.none)
       else if validateEmail model.email == Nothing then
         ({model | warning = "Enter a valid e-mail address"}, Cmd.none)
+      else if model.errorEmail == True then
+        ({model | warning = "E-mail is already taken"}, Cmd.none)
       else if model.password == "" then
         ({model | warning = "Enter your password"}, Cmd.none)
       else if len model.password == False then
@@ -97,6 +105,30 @@ update msg model =
         Err log ->
           ( {model | status = Failure log}, Cmd.none )
 
+    UsernameResponse response ->
+      case response of
+        Ok string ->
+          case string of 
+            "OK" -> 
+              ({model | errorUsername = True}, Cmd.none)
+            _ ->
+              ({model | errorUsername = False}, Cmd.none)
+
+        Err log ->
+          ({model | status = Failure log}, Cmd.none)
+
+    EmailResponse response ->
+      case response of
+        Ok string ->
+          case string of
+            "OK" -> 
+              ({model | errorEmail = True}, Cmd.none)
+            _ ->
+              ({model | errorEmail = False}, Cmd.none)
+
+        Err log ->
+          ({model | status = Failure log}, Cmd.none)
+
     Verification code ->
       ( {model | verification = code}, Cmd.none )
 -- VIEW
@@ -113,16 +145,8 @@ view model =
     ]
     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
         div [ class "col-md-offset-2 col-md-8" ] [
-          case validateUsername model.name of
-            True ->
-              div[][ 
-                div[ class "form-group has-success has-feedback" ][
-                label [ for "username" ] [ text "Username:" ]
-                , input [ id "username", type_ "text", class "form-control", Html.Attributes.value model.name, onInput Name ] []
-                , span [ class "glyphicon glyphicon-ok form-control-feedback" ][]
-                ]
-              ]
-            False ->
+          case model.errorUsername of
+            True -> 
               div[][ 
                 div[ class "form-group has-error has-feedback" ][
                   label [ for "username" ] [ text "Username:" ]
@@ -130,23 +154,49 @@ view model =
                   , span [ class "glyphicon glyphicon-remove form-control-feedback" ][]
                 ]
               ]
+            False ->
+              case validateUsername model.name of
+                True ->
+                  div[][ 
+                    div[ class "form-group has-success has-feedback" ][
+                    label [ for "username" ] [ text "Username:" ]
+                    , input [ id "username", type_ "text", class "form-control", Html.Attributes.value model.name, onInput Name ] []
+                    , span [ class "glyphicon glyphicon-ok form-control-feedback" ][]
+                    ]
+                  ]
+                False ->
+                  div[][ 
+                    div[ class "form-group has-error has-feedback" ][
+                      label [ for "username" ] [ text "Username:" ]
+                      , input [ id "username", type_ "text", class "form-control", Html.Attributes.value model.name, onInput Name ] []
+                      , span [ class "glyphicon glyphicon-remove form-control-feedback" ][]
+                    ]
+                  ]
         ]
     ]
     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
         div [ class "col-md-offset-2 col-md-8" ] [
-          case validateEmail model.email of
-            Just _ ->
-              div[ class "form-group has-success has-feedback" ][
-                label [ for "email" ] [ text "E-mail:" ]
-                , input [ id "email", type_ "email", class "form-control", Html.Attributes.value model.email, onInput Email ] []
-                , span [ class "glyphicon glyphicon-ok form-control-feedback" ][]
-              ]
-            Nothing ->
-              div[ class "form-group has-error has-feedback" ][
-                label [ for "email" ] [ text "E-mail:" ]
-                , input [ id "email", type_ "email", class "form-control", Html.Attributes.value model.email, onInput Email ] []
-                , span [ class "glyphicon glyphicon-remove form-control-feedback" ][]
-              ]
+        case model.errorEmail of
+          True -> 
+            div[ class "form-group has-error has-feedback" ][
+                  label [ for "email" ] [ text "E-mail:" ]
+                  , input [ id "email", type_ "email", class "form-control", Html.Attributes.value model.email, onInput Email ] []
+                  , span [ class "glyphicon glyphicon-remove form-control-feedback" ][]
+                ]
+          False ->
+            case validateEmail model.email of
+              Just _ ->
+                div[ class "form-group has-success has-feedback" ][
+                  label [ for "email" ] [ text "E-mail:" ]
+                  , input [ id "email", type_ "email", class "form-control", Html.Attributes.value model.email, onInput Email ] []
+                  , span [ class "glyphicon glyphicon-ok form-control-feedback" ][]
+                ]
+              Nothing ->
+                div[ class "form-group has-error has-feedback" ][
+                  label [ for "email" ] [ text "E-mail:" ]
+                  , input [ id "email", type_ "email", class "form-control", Html.Attributes.value model.email, onInput Email ] []
+                  , span [ class "glyphicon glyphicon-remove form-control-feedback" ][]
+                ]
         ]
     ]
     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
@@ -248,16 +298,26 @@ validatePassword pass passAgain =
   else
     False
 
-validateEmail : String -> Maybe Email.Email
-validateEmail email =
-    Email.fromString email
-
-
 usernameEncoder : String -> Encode.Value
 usernameEncoder name =
   Encode.object
   [ ( "username", Encode.string name )
   ]
+
+checkUsername: String -> Cmd Msg
+checkUsername username =
+    Http.post {
+      url = "http://localhost:3000/validate"
+      , body = Http.jsonBody <| usernameEncoder username
+      , expect = Http.expectJson UsernameResponse (field "response" Decode.string)
+    }
+
+validateUsername : String -> Bool
+validateUsername name =  
+  if name /= "" then
+    True
+  else
+    False
 
 emailEncoder : String -> Encode.Value
 emailEncoder email =
@@ -265,12 +325,17 @@ emailEncoder email =
   [ ( "email", Encode.string email )
   ]
 
-validateUsername : String -> Bool
-validateUsername username = 
-  if username /= "" then
-    True
-  else
-    False
+checkEmail: String -> Cmd Msg
+checkEmail email =
+    Http.post {
+      url = "http://localhost:3000/validate"
+      , body = Http.jsonBody <| emailEncoder email
+      , expect = Http.expectJson EmailResponse (field "response" Decode.string)
+    }
+
+validateEmail : String -> Maybe Email.Email
+validateEmail email =
+    Email.fromString email
 
 userEncoder : Model -> Encode.Value
 userEncoder model =
@@ -286,7 +351,6 @@ post : Model -> Cmd Msg
 post model = 
   Http.request
     { method = "POST"
-    --, headers = [ Http.header "Access-Control-Allow-Headers" "X-Requested-With", Http.header "Access-Control-Allow-Origin" "*"]
     , headers = []
     , url = "http://localhost:3000/sign_up"
     --, url = "http://httpbin.org/post"
@@ -295,6 +359,8 @@ post model =
     , timeout = Nothing
     , tracker = Nothing
     }
+
+  
 
   {--
   Http.post { url = "http://localhost:3000/sign_up"

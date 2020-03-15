@@ -47,6 +47,7 @@ type alias Model =
   , page : Page
   , search : ( Search.Model, Cmd Search.Msg )
   , carousel : Carousel.Model
+  , state : State
   }
 
 type Page 
@@ -60,6 +61,10 @@ type Page
   | Upload Upload.Model
   | Home Home.Model
 
+
+type State
+  =  Ready Session.Session
+
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     ({ key = key
@@ -67,7 +72,8 @@ init flags url key =
     , page = NotFound
     , search = Search.init key
     , carousel = Carousel.init
-    }, Cmd.none)
+    , state = Ready Session.init
+    }, Nav.pushUrl key ("/"))
     
 
 type Msg
@@ -80,6 +86,7 @@ type Msg
   | UploadMsg Upload.Msg
   | UpdateSearch Search.Msg
   | UpdateCarousel Carousel.Msg
+  | LogOut
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -94,14 +101,17 @@ update msg model =
 
     UrlChange url ->
       stepUrl url model
-      --( { model | url = url}
-      --, Cmd.none
-      --)
+
+    LogOut ->
+      ( { model | state = Ready Session.init }, Nav.pushUrl model.key ("/") )
+    
     UpdateSearch mesg -> 
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
        stepSearch model (Search.update mesg (Search.getModel model.search))
+
     UpdateCarousel mesg -> 
        ({ model | carousel = Carousel.update mesg model.carousel }, Cmd.none)
+
     SignUpMsg mesg ->
       case model.page of
         SignUp signup -> stepSignUp model (SignUp.update mesg signup)
@@ -109,19 +119,27 @@ update msg model =
           --({model | page = SignUp (SignUp.update mesg signup)}, Cmd.none)
           --       -> (model, Cmd.none)
         _ -> (model, Cmd.none)
+
     SignInMsg mesg ->
       case model.page of
-        SignIn signin -> stepSignIn model (SignIn.update mesg signin)
+        SignIn signin -> 
+          case model.state of
+            Ready session ->
+              stepSignIn model (SignIn.update session mesg signin)
+          --stepSignIn model (SignIn.update mesg signin)
           --({model | page = SignIn (SignIn.update mesg signin)}, Cmd.none)
         _ -> (model, Cmd.none)
+
     GalleryMsg mesg ->
       case model.page of
         Gallery gallery -> stepGallery model (Gallery.update mesg gallery)
         _ -> ( model, Cmd.none )
+
     UploadMsg mesg ->
       case model.page of
         Upload upload -> stepUpload model (Upload.update mesg upload)
         _ -> ( model, Cmd.none )
+
     HomeMsg mesg ->
       case model.page of
         Home home -> stepHome model (Home.update mesg home)
@@ -145,9 +163,11 @@ stepSignUp : Model -> (SignUp.Model, Cmd SignUp.Msg) -> (Model, Cmd Msg)
 stepSignUp model ( signup, cmd ) =
   ({ model | page = SignUp signup }, Cmd.map SignUpMsg cmd)
 
-stepSignIn : Model -> (SignIn.Model, Cmd SignIn.Msg) -> (Model, Cmd Msg)
-stepSignIn model ( signin, cmd ) = 
-  ({ model | page = SignIn signin }, Cmd.map SignInMsg cmd)
+
+--shared state!! by using message contained in signin update, i can transform state in main 
+stepSignIn : Model -> (SignIn.Model, Cmd SignIn.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
+stepSignIn model ( signin, cmd, session ) = 
+  ({ model | page = SignIn signin, state = Ready (Session.update session Session.init) }, Cmd.map SignInMsg cmd)
 
 stepGallery : Model -> (Gallery.Model, Cmd Gallery.Msg) -> (Model, Cmd Msg)
 stepGallery model ( gallery, cmd ) = 
@@ -177,19 +197,6 @@ subscriptions model =
 
 view : Model -> Browser.Document Msg
 view model =
-  let 
-    login : Bool
-    login = 
-      case model.page of
-        SignIn signin ->
-          case signin.session.status of
-            Session.LoggedIn ->
-              True
-            Session.Anonymous ->
-              False
-        _ ->
-          False 
-  in
     case model.page of
       NotFound ->
         { title = "Not Found"
@@ -249,11 +256,6 @@ view model =
            SignIn.view signin |> Html.map SignInMsg
           ]
           --, viewBody model
-          , case login of
-            True ->
-              text "SOM TAM"
-            False ->
-              text "RIP NIESOM TAM"
           , viewFooter
           ]
         }
@@ -298,21 +300,19 @@ viewNav model =
             --, li [] [ a [ href "/profile" ] [ text "Profile" ] ]
         ]
         
-        
-        , ul [ class "nav navbar-nav navbar-right" ][
-            li [] [ a [ href "/sign_in" ] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
-            , li [] [ a [ href "/sign_up" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
-          ]
-        
-        
-        {--
-        , ul [ style "margin-top" "7px", class "nav navbar-nav navbar-right" ][
-             li [] [ img [ class "avatar", src "../src/img/Elm_logo.svg.png", width 35, height 35 ] [] ] 
-             , li [ style "margin-top" "7px"
-                  , style "margin-left" "10px"
-                  , style "color" "grey"] [text "jaruji"]
-        ] 
-        --}
+        , case model.state of
+          Ready session ->
+            case session.username of
+              Nothing ->
+                ul [ class "nav navbar-nav navbar-right" ][
+                  li [] [ a [ href "/sign_in" ] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
+                  , li [] [ a [ href "/sign_up" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
+                ]
+              Just username ->
+               ul [ class "nav navbar-nav navbar-right" ] [
+                li [] [ text username ]
+                , li [] [ button [ class "btn btn-primary", onClick LogOut ] [ text "Log Out" ] ]
+               ]
       ] 
     ]
 
@@ -320,6 +320,7 @@ viewBody: Model -> Html Msg
 viewBody model =
   div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
     h2 [] [ text "Oops! This page doesn't exist" ]
+    , viewSession model.state
   ]
 
 --viewSignUpForm: Model -> Html Msg
@@ -358,7 +359,10 @@ stepUrl url model =
             ( stepSignUp model (SignUp.init model.key)
             )
           , route (s "sign_in")
-            ( stepSignIn model (SignIn.init model.key)
+            (
+              case model.state of
+                Ready session ->
+                  stepSignIn model ( SignIn.init model.key  )
             )
           , route (s "upload")
             ( stepUpload model (Upload.init)
@@ -378,3 +382,13 @@ stepUrl url model =
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =
   Parser.map handler parser
+
+viewSession: State -> Html Msg
+viewSession state =
+  case state of
+    Ready session ->
+      case session.username of
+        Just username ->
+          text username
+        Nothing ->
+          text "Not logged in..."

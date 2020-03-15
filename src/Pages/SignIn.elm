@@ -19,15 +19,14 @@ type alias Model =
   { name : String
   , password : String
   , warning : String
-  , session : Session.Model
   , status : Status
   , serverResponse : String
   , key : Nav.Key
   }
 
-init : Nav.Key -> (Model, Cmd Msg)
+init : Nav.Key -> (Model, Cmd Msg, Session.UpdateSession)
 init key =
-  (Model "" "" "" Session.init Loading "" key, Cmd.none)
+  (Model "" "" "" Loading "" key, Cmd.none, Session.NoUpdate)
 
 
 
@@ -53,33 +52,33 @@ type Status --status when logging in
 
 
 
-update : Msg -> Model -> ( Model, Cmd Msg)
-update msg model =
+update : Session.Session -> Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
+update session msg model =
   case msg of
     Name name ->
-      ( { model | name = name }, Cmd.none )
+      ( { model | name = name }, Cmd.none, Session.NoUpdate )
 
     Password password ->
-      ( { model | password = password }, Cmd.none )
+      ( { model | password = password }, Cmd.none, Session.NoUpdate )
 
     Submit ->
       if model.name == "" then
-        ( {model | warning = "Enter your username"}, Cmd.none )
+        ( {model | warning = "Enter your username"}, Cmd.none, Session.NoUpdate )
       else if model.password == "" then
-        ( {model | warning = "Enter your password"}, Cmd.none )
+        ( {model | warning = "Enter your password"}, Cmd.none, Session.NoUpdate )
       else
-        ( {model | status = Loading,  warning = "Loading"}, post model )  --Nav.pushUrl model.key ("/"))
+        ( {model | status = Loading,  warning = "Loading"}, post model, Session.NoUpdate )  --Nav.pushUrl model.key ("/"))
 
     Response response ->
       case response of
         Ok string ->
           case string of
             "OK" ->
-              ( {model | status = Success string, serverResponse = string, session = Session.login model.session model.name }, Nav.pushUrl model.key ("/") )
+              ( {model | status = Success string, serverResponse = string }, Nav.pushUrl model.key ("/"), Session.LogIn model.name )
             _ ->
-              ( { model | status = Success string, serverResponse = string }, Cmd.none )
+              ( { model | status = Success string, serverResponse = string }, Cmd.none, Session.NoUpdate )
         Err log ->
-          ( {model | status = Failure log}, Cmd.none )
+          ( {model | status = Failure log}, Cmd.none, Session.NoUpdate )
 
 -- VIEW
 

@@ -1,39 +1,33 @@
 module Session exposing (..)
 
 import Browser
+import Browser.Navigation as Nav
 import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
 
-type alias Model =
+--inspiration from https://github.com/jxxcarlson/elm-shared-login/tree/master/src
+
+type alias Session =
   { 
-    status: Msg ,
-    username : String
+   username : Maybe String
   } 
 
-type Msg
-  = Anonymous
-  | LoggedIn
+type UpdateSession
+  = LogIn String
+  | LogOut
+  | NoUpdate
 
-init : Model
+init : Session
 init =
-  (Model Anonymous "")
+  (Session Nothing)
 
-login : Model -> String -> Model
-login model name =
-  { model | username = name, status = LoggedIn }
+update: UpdateSession -> Session -> Session
+update msg model =
+  case msg of
+    NoUpdate ->
+      model
 
-logout : Model -> Model
-logout model =
-  { model | username = "", status = Anonymous }
+    LogIn name ->
+      { model | username = Just name }
 
-
-view : Model -> Html Msg
-view model =
-  div[] [
-    case model.status of
-      Anonymous ->
-        text "Logged in as anonymous"
-      LoggedIn ->
-        text "Logged in as someone"
-  ]
+    LogOut ->
+      { model | username = Nothing }

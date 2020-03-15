@@ -1,5 +1,5 @@
-- somehow make it so singing in changes the state of navbar, loads a profile
-- add the live validation of username/email
+*DONE - somehow make it so singing in changes the state of navbar, loads a profile
+*DONE - add the live validation of username/email
 - rework the upload function and transfer it to components, add upload to server
 - upload page - image title, tags, category, ....
 - image preview - upvote, downvote, favorite?, leave a comment (only signed in users)
@@ -15,5 +15,3 @@ terezka/line-diagram)? Could be cool, would be at profile tab! like github! Use 
 
 -could be all :) then testing and writing up the necessary text, and all should be gucci
 -probably will be more than enough for my bachelor-thesis
-
--fucking hell, that is a lot of work
