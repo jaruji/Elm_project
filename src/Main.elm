@@ -7,16 +7,20 @@ import Html.Events exposing (..)
 import Http
 import Url
 import Url.Parser as Parser exposing (Parser, (</>), custom, fragment, map, oneOf, s, top)
-import Json.Decode as Json
+import Json.Decode as Decode
+import Json.Encode as Encode
 import FeatherIcons as Icons
 import Pages.Gallery as Gallery
 import Pages.SignUp as SignUp
 import Pages.SignIn as SignIn
 import Pages.Upload as Upload
 import Pages.Home as Home
+import Pages.Profile as Profile
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
 import Session
+import User
+import Server
 --import Components.SingUp as SignUp
 
 --97, 113, 181?
@@ -26,7 +30,7 @@ import Session
 
 -- MAIN
 
-main : Program () Model Msg
+main : Program (Maybe String) Model Msg
 main =
   Browser.application
     { init = init
@@ -51,29 +55,55 @@ type alias Model =
   }
 
 type Page 
-  = NotFound
+  = NotFound String
   | Gallery Gallery.Model
-  | Forum
-  | Profile
   --under here SignUp (SignUp.Model, Cmd SignUp.Msg)
   | SignUp SignUp.Model
   | SignIn SignIn.Model
   | Upload Upload.Model
   | Home Home.Model
+  | Profile Profile.Model
 
 
 type State
-  =  Ready Session.Session
+  = Ready Session.Session
+  | NotReady String
+  | Failure
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url key =
-    ({ key = key
-    , url = url
-    , page = NotFound
-    , search = Search.init key
-    , carousel = Carousel.init
-    , state = Ready Session.init
-    }, Nav.pushUrl key ("/"))
+-- will accept Maybe ? -> if its Nothing, everything works just as it did
+-- if the value is Just, will need to request entire user from server! Will enable
+-- to refresh page after update, will not need to "hack" anymore
+
+--todo: full screen carousel, external font header + fix nav color when clicked
+--fix footer + maybe add simple contact page
+-- finish login through local storage
+-- finish all profile options
+-- create upload image formular
+-- fix loading of all images from the server
+-- create users page, enable searching of users and add profile view for users
+-- enable image search + search history stored in localstorage
+
+init : Maybe String -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flag url key =
+  case flag of
+    Nothing ->
+      routeUrl url  --if no entry in localStorage, user is not signed in
+        { key = key
+        , url = url
+        , page = NotFound ""
+        , search = Search.init key
+        , carousel = Carousel.init
+        , state = Ready Session.init
+        }
+    Just token -> -- if there is a token in localStorage, use it to load user info
+      routeUrl url  --if no entry in localStorage, user is not signed in
+        { key = key
+        , url = url
+        , page = NotFound ""
+        , search = Search.init key
+        , carousel = Carousel.init
+        , state = NotReady token
+        }
     
 
 type Msg
@@ -84,9 +114,11 @@ type Msg
   | SignInMsg SignIn.Msg
   | HomeMsg Home.Msg
   | UploadMsg Upload.Msg
+  | ProfileMsg Profile.Msg
   | UpdateSearch Search.Msg
   | UpdateCarousel Carousel.Msg
   | LogOut
+  | Response (Result Http.Error User.Model)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -100,10 +132,10 @@ update msg model =
           ( model, Nav.load href )
 
     UrlChange url ->
-      stepUrl url model
+      routeUrl url model
 
     LogOut ->
-      ( { model | state = Ready Session.init }, Nav.pushUrl model.key ("/") )
+      ( { model | state = Ready Session.init }, Cmd.batch [ User.logout, Nav.pushUrl model.key ("/")] ) --?? bugged
     
     UpdateSearch mesg -> 
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
@@ -123,9 +155,7 @@ update msg model =
     SignInMsg mesg ->
       case model.page of
         SignIn signin -> 
-          case model.state of
-            Ready session ->
-              stepSignIn model (SignIn.update session mesg signin)
+          stepSignIn model (SignIn.update mesg signin)
           --stepSignIn model (SignIn.update mesg signin)
           --({model | page = SignIn (SignIn.update mesg signin)}, Cmd.none)
         _ -> (model, Cmd.none)
@@ -145,7 +175,26 @@ update msg model =
         Home home -> stepHome model (Home.update mesg home)
         _ -> ( model, Cmd.none )
 
+    ProfileMsg mesg ->
+      case model.page of
+        Profile profile -> stepProfile model (Profile.update mesg profile)
+        _ -> (model, Cmd.none)
 
+    Response response ->
+      case response of
+        Ok user ->
+          ({ model | state = Ready (Session.set user) }, Nav.pushUrl model.key (Url.toString model.url))
+          --page refresh without calling init!
+        Err log ->
+          ({ model | state = Failure}, Cmd.none)
+
+stepProfile: Model -> (Profile.Model, Cmd Profile.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
+stepProfile model (profile, cmd, session) =
+  case model.state of
+    Ready sess ->
+      ({ model | page = Profile profile, state = Ready (Session.update session sess) }, Cmd.map ProfileMsg cmd)
+    _ -> 
+      (model, Cmd.none)
 
 stepSearch: Model -> (Search.Model, Cmd Search.Msg) -> (Model, Cmd Msg)
 stepSearch model ( search, cmd ) =
@@ -178,11 +227,12 @@ stepGallery model ( gallery, cmd ) =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  if model.page == NotFound
+  {--
+  if model.page == ( NotFound)
   then
     Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
-  else
-    Sub.none
+  else--}
+  Sub.none
   {--
   case model.page of
     Home home ->
@@ -198,11 +248,11 @@ subscriptions model =
 view : Model -> Browser.Document Msg
 view model =
     case model.page of
-      NotFound ->
+      NotFound string ->
         { title = "Not Found"
         , body = [
           viewHeader model
-          , viewBody model
+          , viewBody model string
           , viewFooter
           ]
         }
@@ -220,22 +270,6 @@ view model =
           viewHeader model
           , Gallery.view gallery |> Html.map GalleryMsg
           , viewFooter        
-          ]
-        }
-      Forum ->
-        { title = "Forum"
-        , body = [
-          viewHeader model
-          , viewBody model
-          , viewFooter
-          ]
-        }
-      Profile ->
-        { title = "Profile"
-        , body = [
-          viewHeader model
-          --, viewBody model
-          , viewFooter
           ]
         }
       SignUp signup ->
@@ -269,6 +303,16 @@ view model =
           , viewFooter
           ]
         }
+      Profile profile ->
+        { title = "Profile"
+          , body = [
+            viewHeader model
+            , div [style "text-align" "center", style "padding-top" "50px" ][
+              Profile.view profile |> Html.map ProfileMsg
+            ]
+            , viewFooter
+          ]
+        }
 
 viewImage : String -> Int -> Int -> Html msg
 viewImage path w h =
@@ -296,31 +340,27 @@ viewNav model =
             , li [] [ a [ href "/upload" ] [ text "Upload Image"] ]
             , li [] [ a [ href "/users" ] [ text "Users"] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
-            --, li [] [ a [ href "/forum" ] [ text "Forum" ] ]
-            --, li [] [ a [ href "/profile" ] [ text "Profile" ] ]
         ]
         
-        , case model.state of
-          Ready session ->
-            case session.username of
-              Nothing ->
-                ul [ class "nav navbar-nav navbar-right" ][
-                  li [] [ a [ href "/sign_in" ] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
-                  , li [] [ a [ href "/sign_up" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
-                ]
-              Just username ->
-               ul [ class "nav navbar-nav navbar-right" ] [
-                li [] [ text username ]
-                , li [] [ button [ class "btn btn-primary", onClick LogOut ] [ text "Log Out" ] ]
-               ]
+        , case getUser model.state of
+            Nothing ->
+              ul [ class "nav navbar-nav navbar-right" ][
+                li [] [ a [ href "/sign_in" ] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
+                , li [] [ a [ href "/sign_up" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
+              ]
+            Just user ->
+             ul [ class "nav navbar-nav navbar-right" ] [
+              li [] [ img [ class "avatar", style "border-radius" "50%", style "margin-top" "5px", src user.avatar, height 40, width 40 ] [] ]
+              , li [] [ a [ href "/profile#information" ]  [ text user.username ] ]
+              , li [] [ a [ onClick LogOut ] [ span [ class "glyphicon glyphicon-log-out", style "margin-right" "2px" ][], text "Log Out" ] ]
+             ]
       ] 
     ]
 
-viewBody: Model -> Html Msg
-viewBody model =
+viewBody: Model -> String -> Html Msg
+viewBody model error =
   div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
-    h2 [] [ text "Oops! This page doesn't exist" ]
-    , viewSession model.state
+    h2 [] [ text error ]
   ]
 
 --viewSignUpForm: Model -> Html Msg
@@ -328,67 +368,105 @@ viewBody model =
 
 viewFooter: Html Msg
 viewFooter =
-  div [style "background-color" "white"
+  div 
+  [
+      style "background-color" "white"
       , style "height" "200px"
       , style "text-align" "center"
       , style "color" "white"
       , style "padding-top" "100px"
       , style "background-color" "#2f2f2f"
-      , class "container-fluid text-center"]
-  [ text "© 2020 Juraj Bedej"
-  , br [][]
-  , a [ href "https://github.com/jaruji?tab=repositories"] [ text "Source"]
-  , br [][]
-  , a [ href "/contact" ] [ text "Contact me" ]
+      , class "container-fluid text-center"
+  ] [ 
+    ul [ class "nav nav-pills", style "text-align" "center" ] [
+      li [][ a [ href "" ] [ text "© 2020 Juraj Bedej" ] ]
+      , li [][ a [ href "https://github.com/jaruji?tab=repositories"] [ text "Source"] ]
+      , li [][ a [ href "/contact" ] [ text "Contact me" ] ]
+    ]
   ]
 
 --Router
 
-stepUrl : Url.Url -> Model -> (Model, Cmd Msg)
-stepUrl url model =
+routeUrl : Url.Url -> Model -> (Model, Cmd Msg)
+routeUrl url model =
   let
     parser =
       oneOf   --rerouting based on url change!
         [ route (s "gallery")
-            ( stepGallery model (Gallery.init)
-            )
-          , route (s "profile")
-            ( stepGallery model (Gallery.init)
+            ( 
+              stepGallery model (Gallery.init)
             )
           , route (s "sign_up")
-            ( stepSignUp model (SignUp.init model.key)
+            ( 
+              stepSignUp model (SignUp.init model.key)
             )
           , route (s "sign_in")
             (
-              case model.state of
-                Ready session ->
-                  stepSignIn model ( SignIn.init model.key  )
+              stepSignIn model ( SignIn.init model.key  )
             )
           , route (s "upload")
-            ( stepUpload model (Upload.init)
+            ( 
+              stepUpload model (Upload.init (getUser model.state) model.key )
             )
           , route (top)
-            ( stepHome model (Home.init model.key)
+            ( 
+              stepHome model (Home.init (getUser model.state) model.key)
+            )
+          , route (s "profile")
+            ( 
+              case getUser model.state of
+                Just user ->
+                  stepProfile model (Profile.init model.key user)
+                _ ->
+                  (model, Cmd.none)
             )
         ]
   in 
-  case Parser.parse parser url of
-    Just urll ->
-      urll
+    case model.state of
+          NotReady token ->
+            ( {model | page = NotFound "Fetching your profile info"}, loadUser token )
+          Failure ->
+            ( {model | page = NotFound "Server error, please try again later"}, Cmd.none)
+          _ ->
+            case Parser.parse parser url of
+              Just urll ->
+                urll
 
-    Nothing ->
-      ({model | page = NotFound}, Cmd.none)
+              Nothing ->
+                ({model | page = NotFound "Oops, this page doesn't exist!"}, Cmd.none)
 
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =
   Parser.map handler parser
 
-viewSession: State -> Html Msg
-viewSession state =
+getUser: State -> Maybe User.Model
+getUser state =
   case state of
     Ready session ->
-      case session.username of
-        Just username ->
-          text username
+      case session.user of
+        Just user ->
+          Just user
         Nothing ->
-          text "Not logged in..."
+          Nothing
+    _ ->
+      Nothing
+
+
+--encode user token retrieved from local storage so we can send it to the server
+tokenEncoder: String -> Encode.Value
+tokenEncoder token =
+  Encode.object[("token", Encode.string token)]
+
+
+--use this function if user token is stored in local storage
+loadUser: String -> Cmd Msg
+loadUser token =
+  Http.request
+    { method = "POST"
+    , headers = []
+    , url = Server.url ++ "/account/sign_in"
+    , body = Http.jsonBody <| tokenEncoder token 
+    , expect = Http.expectJson Response User.decodeUser
+    , timeout = Nothing
+    , tracker = Nothing
+    }

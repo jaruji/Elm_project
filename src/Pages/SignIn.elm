@@ -11,6 +11,8 @@ import Json.Decode as Decode exposing (list, field, string)
 import Loading as Loader
 import Crypto.Hash as Crypto
 import Session
+import Server
+import User exposing (..)
 
 -- MODEL
 
@@ -20,14 +22,12 @@ type alias Model =
   , password : String
   , warning : String
   , status : Status
-  , serverResponse : String
   , key : Nav.Key
   }
 
 init : Nav.Key -> (Model, Cmd Msg, Session.UpdateSession)
 init key =
-  (Model "" "" "" Loading "" key, Cmd.none, Session.NoUpdate)
-
+  (Model "" "" "" Loading key, Cmd.none, Session.NoUpdate)
 
 
 -- UPDATE
@@ -37,7 +37,7 @@ type Msg
   = Name String
   | Password String
   | Submit
-  | Response (Result Http.Error String)
+  | Response (Result Http.Error User.Model)
 
 {--
 type Session --session
@@ -52,8 +52,8 @@ type Status --status when logging in
 
 
 
-update : Session.Session -> Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
-update session msg model =
+update : Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
+update msg model =
   case msg of
     Name name ->
       ( { model | name = name }, Cmd.none, Session.NoUpdate )
@@ -67,16 +67,12 @@ update session msg model =
       else if model.password == "" then
         ( {model | warning = "Enter your password"}, Cmd.none, Session.NoUpdate )
       else
-        ( {model | status = Loading,  warning = "Loading"}, post model, Session.NoUpdate )  --Nav.pushUrl model.key ("/"))
+        ( {model | status = Loading,  warning = "Loading"}, post model, Session.NoUpdate )
 
     Response response ->
       case response of
-        Ok string ->
-          case string of
-            "OK" ->
-              ( {model | status = Success string, serverResponse = string }, Nav.pushUrl model.key ("/"), Session.LogIn model.name )
-            _ ->
-              ( { model | status = Success string, serverResponse = string }, Cmd.none, Session.NoUpdate )
+        Ok user ->
+          ( { model | status = Success "" }, Cmd.batch [ Nav.pushUrl model.key ("/"), User.encodeForStorage user ], Session.Update user )
         Err log ->
           ( {model | status = Failure log}, Cmd.none, Session.NoUpdate )
 
@@ -139,6 +135,8 @@ view model =
               ]
             Success _ ->
               --ak sa dostaneme do tejto vetvy bez presmerovania, bolo zadane zle meno/heslo 
+              --sem to nikdy nepride po novom!
+              --este toto musim nejako opravit! lebo teraz to vzdy hodi error ale to neni OK
               div [ class "alert alert-warning", style "margin-top" "15px" ] [
                 text "Incorrect username or password"
               ]
@@ -177,10 +175,10 @@ post model =
   Http.request
     { method = "POST"
     , headers = []
-    , url = "http://localhost:3000/validate"
+    , url = Server.url ++ "/account/sign_in"
     --, url = "http://httpbin.org/post"
     , body = Http.jsonBody <| accountEncoder model 
-    , expect = Http.expectJson Response (field "response" Decode.string)
+    , expect = Http.expectJson Response {--(field "response" Decode.string)--} User.decodeUser
     , timeout = Nothing
     , tracker = Nothing
     }

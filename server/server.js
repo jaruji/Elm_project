@@ -7,16 +7,24 @@ const fs = require('fs');
 //routers
 
 fastify.register(require('./routes'), { prefix: '' })
+fastify.register(require('fastify-multipart'))
 
+//enables CORS
 fastify.register(require('fastify-cors'), {
    origin: "*",
-   allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'name'],
+   allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'name', 'user'],
    methods: ['GET', 'PUT', 'PATCH', 'POST', 'DELETE']
 })
 
+//allows serving static image files from url
 fastify.register(require('fastify-static'), {
   root: path.join(__dirname, 'data/img'),
   prefix: '/img', // optional: default '/'
+})
+
+//allows accepting of file uploads to server
+fastify.addContentTypeParser('*', function (req, done) {
+  done(null, req)
 })
 
 //listener

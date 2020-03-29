@@ -3,22 +3,26 @@ module Session exposing (..)
 import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
+import User exposing (..)
 
 --inspiration from https://github.com/jxxcarlson/elm-shared-login/tree/master/src
 
 type alias Session =
   { 
-   username : Maybe String
+   user : Maybe User.Model
   } 
 
 type UpdateSession
-  = LogIn String
-  | LogOut
+  = Update User.Model
   | NoUpdate
 
-init : Session
+init: Session
 init =
   (Session Nothing)
+
+set: User.Model -> Session
+set model =
+  (Session (Just model)) 
 
 update: UpdateSession -> Session -> Session
 update msg model =
@@ -26,8 +30,5 @@ update msg model =
     NoUpdate ->
       model
 
-    LogIn name ->
-      { model | username = Just name }
-
-    LogOut ->
-      { model | username = Nothing }
+    Update usr ->
+      { model | user = Just usr }

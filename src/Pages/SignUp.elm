@@ -11,6 +11,7 @@ import Json.Decode as Decode exposing (list, field, string)
 import Json.Encode as Encode exposing (..)
 import Loading as Loader
 import Crypto.Hash as Crypto
+import Server
 
 
 
@@ -96,12 +97,12 @@ update msg model =
       else if validatePassword model.password model.passwordAgain == False then
         ({model | warning = "Passwords do not match"}, Cmd.none)
       else
-        ({model | status = Loading,  warning = "Loading"}, Cmd.batch [post model,  Nav.pushUrl model.key ("/sign_in")] )
+        ({model | status = Loading,  warning = "Loading"}, post model)
    
     Response response ->
       case response of
         Ok string ->
-          ( {model | status = Success string}, Cmd.none )
+          ( {model | status = Success string}, Nav.pushUrl model.key ("/sign_in") )
         Err log ->
           ( {model | status = Failure log}, Cmd.none )
 
@@ -262,28 +263,6 @@ view model =
           ]
   ]
 
-viewVerify: Model -> Html Msg
-viewVerify model =
-  div [ class "form-horizontal fade in", id "form", style "margin" "auto", style "width" "75%" ] [
-    h2 [ class "text-center" ] [ text "Complete your registration" ]
-    , div [ class "help-block" ] [ text ("We sent an e-mail to " ++ model.email) ]
-    , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-        div [ class "col-md-offset-2 col-md-8" ] [
-          div[][ 
-                div[ class "form-group" ][
-                  label [ for "verify" ] [ text "Enter the received code:" ]
-                  , input [ id "verify", type_ "text", class "form-control", Html.Attributes.value model.verification, onInput Verification ] []
-                  , button [ class "btn btn-primary", style "margin-top" "10px" ][ text "Verify" ]
-                ]
-          ]
-        ]
-    ]
-  ]
-
-resetButton : Model -> Model
-resetButton model =
-  { model | status = Loading }
-
 len : String -> Bool
 len pass =
   if String.length pass > 6 then
@@ -307,7 +286,7 @@ usernameEncoder name =
 checkUsername: String -> Cmd Msg
 checkUsername username =
     Http.post {
-      url = "http://localhost:3000/validate"
+      url = Server.url ++ "/account/validate"
       , body = Http.jsonBody <| usernameEncoder username
       , expect = Http.expectJson UsernameResponse (field "response" Decode.string)
     }
@@ -328,7 +307,7 @@ emailEncoder email =
 checkEmail: String -> Cmd Msg
 checkEmail email =
     Http.post {
-      url = "http://localhost:3000/validate"
+      url = Server.url ++ "/account/validate"
       , body = Http.jsonBody <| emailEncoder email
       , expect = Http.expectJson EmailResponse (field "response" Decode.string)
     }
@@ -352,24 +331,12 @@ post model =
   Http.request
     { method = "POST"
     , headers = []
-    , url = "http://localhost:3000/sign_up"
-    --, url = "http://httpbin.org/post"
+    , url = Server.url ++ "/account/sign_up"
     , body = Http.jsonBody <| userEncoder model 
     , expect = Http.expectJson Response (field "response" Decode.string)
     , timeout = Nothing
     , tracker = Nothing
     }
-
-  
-
-  {--
-  Http.post { url = "http://localhost:3000/sign_up"
-            , body = Http.emptyBody
-            --, body = Http.jsonBody <| userEncoder model 
-            --, body = Http.stringBody "application/json" "Hello world"
-            -- I actually dont get this trash, why does empty work but others dont?
-            , expect = Http.expectJson Response (field "response" Decode.string)}
-  --}
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -377,7 +344,6 @@ subscriptions model =
 
 toString : Http.Error -> String
 toString err =
---convert Http.Error type to String, used for debugging potential connection issues
     case err of
         Timeout ->
             "Timeout exceeded"
