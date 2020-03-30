@@ -36,13 +36,13 @@ view model =
         Just user ->
           h1 [ style "margin-top" "100px" ] [ text ("Welcome, " ++ user.username) ]
         Nothing ->
-          h1 [ style "margin-top" "100px" ] [ text "Welcome to my website" ]
+          h1 [ style "margin-top" "100px" ] [ text "Welcome to our Website" ]
     ]
-    , div [][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
+    --, div [][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
   ]
 
-
+{--
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
- 
+--} 

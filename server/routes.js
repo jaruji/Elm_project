@@ -122,7 +122,7 @@ async function routes(fastify) {
                     res.send({response: false})
                 }
                 else{
-                    var temp = await db.collection('accounts').updateOne(req.body, {$set: {verif: true}})
+                    var temp = await db.collection('accounts').updateOne(req.body, {$set: {verif: true, verifCode: null}})
                     res.send({response: true})
                 }
                 client.close()
@@ -148,13 +148,34 @@ async function routes(fastify) {
                     delete docs[0]._id
                     delete docs[0].password
                     delete docs[0].verifCode
-                    console.log(docs)
+                    //console.log(docs)
                     res.send(docs[0])
                 }
                 client.close()
             })
         });
     })
+
+    fastify.patch('/account/update', async(req, res) => {
+        let auth = req.headers.auth
+        /*
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('accounts').find().toArray(async function(err, docs){
+                if(docs.length === 0){
+                    console.log(docs)
+                    res.code(400).send()
+                }
+                else{
+                    var cursor = await db.collection('accounts').updateOne({token: auth}, {$set: req.body})
+                    res.code(200).send()
+                }
+            })
+            client.close()
+        })    */
+        res.code(200).send()
+    });
 
     //upload files to the server by posting to this url
     fastify.put('/upload/image', async(req, res) => {

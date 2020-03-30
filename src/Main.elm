@@ -18,6 +18,7 @@ import Pages.Home as Home
 import Pages.Profile as Profile
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
+import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Session
 import User
 import Server
@@ -50,12 +51,12 @@ type alias Model =
   , url : Url.Url
   , page : Page
   , search : ( Search.Model, Cmd Search.Msg )
-  , carousel : Carousel.Model
   , state : State
   }
 
 type Page 
   = NotFound String
+  | Loading
   | Gallery Gallery.Model
   --under here SignUp (SignUp.Model, Cmd SignUp.Msg)
   | SignUp SignUp.Model
@@ -92,7 +93,6 @@ init flag url key =
         , url = url
         , page = NotFound ""
         , search = Search.init key
-        , carousel = Carousel.init
         , state = Ready Session.init
         }
     Just token -> -- if there is a token in localStorage, use it to load user info
@@ -101,7 +101,6 @@ init flag url key =
         , url = url
         , page = NotFound ""
         , search = Search.init key
-        , carousel = Carousel.init
         , state = NotReady token
         }
     
@@ -141,8 +140,13 @@ update msg model =
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
        stepSearch model (Search.update mesg (Search.getModel model.search))
 
-    UpdateCarousel mesg -> 
-       ({ model | carousel = Carousel.update mesg model.carousel }, Cmd.none)
+    UpdateCarousel mesg ->
+      case model.page of
+        Home home -> 
+          (model, Cmd.none)
+          --({model | page = setCarousel mesg home}, Cmd.none)
+        _ -> 
+          (model, Cmd.none)
 
     SignUpMsg mesg ->
       case model.page of
@@ -187,7 +191,7 @@ update msg model =
           --page refresh without calling init!
         Err log ->
           ({ model | state = Failure}, Cmd.none)
-
+  
 stepProfile: Model -> (Profile.Model, Cmd Profile.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
 stepProfile model (profile, cmd, session) =
   case model.state of
@@ -227,12 +231,11 @@ stepGallery model ( gallery, cmd ) =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  {--
-  if model.page == ( NotFound)
-  then
-    Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
-  else--}
-  Sub.none
+  case model.page of
+    Home home ->
+      Carousel.subscriptions home.carousel |> Sub.map UpdateCarousel
+    _ ->
+      Sub.none
   {--
   case model.page of
     Home home ->
@@ -256,10 +259,19 @@ view model =
           , viewFooter
           ]
         }
+      Loading ->
+        { title = "Fetching data"
+        , body = [
+          viewHeader model
+          , viewLoading model
+          , viewFooter
+        ]
+        }
       Home home ->
         { title = "Home"
         , body = [
           viewHeader model
+          , viewBanner (Server.url ++ "/img/test.jpg")
           , Home.view home |> Html.map HomeMsg
           , viewFooter
           ]
@@ -324,6 +336,23 @@ viewHeader model =
         viewNav model
     ]
 
+viewBanner: String -> Html Msg
+viewBanner link =
+  let 
+    url = "url(" ++ link ++ ")"
+  in
+    div [ 
+    style "background-image" url
+    , style "width" "100%"
+    , style "height" "300px"
+    , style "color" "white"
+    , style "margin-top" "60px" ][
+      h1 [ style "text-align" "center"] [ text "Welcome to Elm Gallery" ]
+      , div [ class "help-block" ] [
+        text "Site for sharing your images, powered by Elm"
+      ]
+    ]
+
 viewNav: Model -> Html Msg
 viewNav model = 
   div [ class "navbar navbar-inverse navbar-fixed-top" ]
@@ -357,10 +386,27 @@ viewNav model =
       ] 
     ]
 
+selectedLink: String -> Model -> Attribute Msg
+selectedLink myUrl model =
+  let
+    url = Url.toString model.url
+  in
+    if myUrl == url then
+      style "color" "white"
+    else
+      style "" ""
+
 viewBody: Model -> String -> Html Msg
 viewBody model error =
   div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
     h2 [] [ text error ]
+  ]
+
+viewLoading: Model -> Html Msg
+viewLoading model =
+  div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
+    h2 [] [ text "Fetching data from the server" ]
+    , Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
   ]
 
 --viewSignUpForm: Model -> Html Msg
@@ -379,9 +425,9 @@ viewFooter =
       , class "container-fluid text-center"
   ] [ 
     ul [ class "nav nav-pills", style "text-align" "center" ] [
-      li [][ a [ href "" ] [ text "© 2020 Juraj Bedej" ] ]
-      , li [][ a [ href "https://github.com/jaruji?tab=repositories"] [ text "Source"] ]
-      , li [][ a [ href "/contact" ] [ text "Contact me" ] ]
+      li [][ a [ href "", style "color" "white" ] [ text "© 2020 Juraj Bedej" ] ]
+      , li [][ a [ href "https://github.com/jaruji?tab=repositories", style "color" "white"] [ text "Source"] ]
+      , li [][ a [ href "/contact", style "color" "white" ] [ text "Contact me" ] ]
     ]
   ]
 
@@ -418,15 +464,15 @@ routeUrl url model =
                 Just user ->
                   stepProfile model (Profile.init model.key user)
                 _ ->
-                  (model, Cmd.none)
+                  ({model | page = NotFound "You must be logged in to check your profile"}, Cmd.none)
             )
         ]
   in 
     case model.state of
           NotReady token ->
-            ( {model | page = NotFound "Fetching your profile info"}, loadUser token )
+            ( {model | page = Loading }, loadUser token )
           Failure ->
-            ( {model | page = NotFound "Server error, please try again later"}, Cmd.none)
+            ( {model | page = NotFound "We are having server issues, please try again later"}, Cmd.none)
           _ ->
             case Parser.parse parser url of
               Just urll ->

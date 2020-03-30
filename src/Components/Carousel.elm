@@ -6,6 +6,7 @@ import Html.Events exposing (..)
 import FeatherIcons as Icons
 import Task
 import Time exposing (..)
+import Server
 
 --Model
 
@@ -49,38 +50,19 @@ handle current model =
 --View
 view : Model -> Html Msg
 view model =
-    div [ style "position" "absolute"
-      , style "top" "50%"
-      , style "left" "50%"
-      , style "transform" "translate(-50%, -50%)"][
+  div [ style "position" "absolute" 
+      , style "top" "50%" 
+      , style "left" "50%" 
+      , style "transform" "translate(-50%, -50%)"
+  ]
+  [
       div[][
-      button [onClick (Switch (model.current - 1))][Icons.chevronLeft
-                |> Icons.withSize 15
-                |> Icons.toHtml []]
-      , img[src model.source, width 700, height 400] []
-      , button [onClick (Switch (model.current + 1))][Icons.chevronRight
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []]
-      ]
-      , div[style "text-align" "center"][
-        text ("<" ++ String.fromInt model.current ++ "/" ++ String.fromInt(model.total) ++ ">")
-      ]
-      , div[style  "text-align" "center"][
-        button [] [Icons.circle
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []]
-        , button [] [Icons.circle
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []]
-        , button [] [Icons.circle
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []]
-        , button [] [Icons.circle
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []]
-        , button [] [Icons.circle
-                  |> Icons.withSize 15
-                  |> Icons.toHtml []]
+        button [onClick (Switch (model.current - 1))][Icons.chevronLeft |> Icons.withSize 15 |> Icons.toHtml []]
+        , img[ style "object-fit" "cover", src model.source, width 700, height 400] []
+        , button [onClick (Switch (model.current + 1))][Icons.chevronRight |> Icons.withSize 15 |> Icons.toHtml []]
+        ]
+        , div[style "text-align" "center"][
+          text ("<" ++ String.fromInt model.current ++ "/" ++ String.fromInt(model.total) ++ ">")
         ]
     ]
 

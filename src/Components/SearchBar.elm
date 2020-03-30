@@ -71,15 +71,18 @@ view :  Model -> Html Msg
 view model =
     div [ class "form-inline", style "margin-top" "10px" ][
       input [ class "form-control"
+      , list "options"
       , type_ "text"
       , placeholder "Search"
       , value model.searchValue
+      , autocomplete True
       , onInput UpdateValue
       , keyPress KeyHandler ] []
       , span[ style "margin-top" "10px"
             , style "color" "grey"
             , class "glyphicon glyphicon-search form-control-feedback"
             , onClick Submit ][]
+      , datalist [ id "options" ][ text "Ahoj", text "Testing", text "Waduhek"]
       --, onFocus ()
       --, button [ class "btn-primary", onClick Submit ][ text "Search" ]
       --, div[][text ("Currently searching: " ++ model.searchValue)]

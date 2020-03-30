@@ -13,6 +13,8 @@ import File.Select as Select
 import Json.Decode as Decode exposing (Decoder, field, string, int)
 import Json.Encode as Encode exposing (..)
 import LineChart
+import FeatherIcons as Icons
+import Social
 
 type alias Model =
   {  
@@ -20,6 +22,7 @@ type alias Model =
     , key: Nav.Key
     , tab: Tab
     , code: String
+    , bio: String
   }
 
 type alias Point =
@@ -33,6 +36,8 @@ type Msg
   | SwitchSettings
   | SwitchSecurity
   | SwitchHistory
+  | Bio String
+  | UpdateSettings
   | Request
   | Code String
   | Verify
@@ -50,7 +55,7 @@ type Tab
 
 init: Nav.Key -> User.Model -> ( Model, Cmd Msg, Session.UpdateSession)
 init key user = 
-  (Model user key Information "", Cmd.none, Session.NoUpdate)
+  (Model user key Information "" "", Cmd.none, Session.NoUpdate)
 
 update: Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
 update msg model =
@@ -98,6 +103,12 @@ update msg model =
     Code string ->
         ({model | code = string}, Cmd.none, Session.NoUpdate)
 
+    Bio string ->
+        ({model | bio = string}, Cmd.none, Session.NoUpdate)
+
+    UpdateSettings ->
+        (model, patch model.user.token "bio" model.bio, Session.NoUpdate)
+
 verifyUser: User.Model -> User.Model
 verifyUser user =
     { user | verif = True }
@@ -114,7 +125,7 @@ view model =
   in 
     div[][
         div[ class "jumbotron" ][
-            img [ class "avatar", src user.avatar, style "border-radius" "50%", height 200, width 200, onClick Select ] []
+            img [ class "avatar", style "border" "10px solid white", src user.avatar, style "border-radius" "50%", height 200, width 200, onClick Select ] []
             , br [] []
             , h3 [] [ text user.username
                     , if user.verif == True then 
@@ -122,8 +133,27 @@ view model =
                     else
                         span [ class "glyphicon glyphicon-remove-circle", style "color" "red", style "margin-left" "5px" ] []
             ]
+            , div [ style "margin-bottom" "20px" ] [
+                ul [ class "nav" ] [
+                    case user.facebook of
+                        Just url ->
+                            Social.viewFacebook url
+                        Nothing ->
+                            div [][]
+                    , case user.twitter of
+                        Just url ->
+                            Social.viewTwitter url
+                        Nothing ->
+                            div[][]
+                    , case user.github of
+                        Just url ->
+                            Social.viewGithub url
+                        Nothing ->
+                            div [][]
+                ]
+            ]
             , div [ style "font-style" "italic" ] [ text user.bio ]
-             , ul [ class "nav nav-pills" ][
+            , ul [ class "nav nav-pills" ][
                 li [][ a [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", href "#information", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
                 , li [][ a [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", href "#settings", onClick SwitchSettings ] [ text "Settings"] ]
                 , li [][ a [ if model.tab == Security then style "text-decoration" "underline" else style "" "", style "color" "black", href "#security", onClick SwitchSecurity ] [ text "Security"] ]
@@ -133,20 +163,29 @@ view model =
         , case model.tab of
             Information ->
                 div[ class "list-group" ][
-                    viewStringInfo user.firstName "First Name"
-                    , viewStringInfo user.surname "Surname"
+                    h3 [] [ text "Basic information" ]
+                    , div [ class "help-block" ] [ text ("Here are some basic information about " ++ user.username) ]
+                    , viewStringInfo user.firstName "First Name"
+                    , viewStringInfo user.surname "Last Name"
                     , viewStringInfo user.occupation "Occupation"
+                    , hr [] []
+                    , h3 [] [ text "Account information" ]
+                    , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
+                    , viewStringInfo user.firstName "Registered at"
                 ]
             Settings ->
                 div [][ 
-                    h3 [] [ text "Update your bio" ]
+                    h3 [] [ text "Want to change your avatar?" ]
+                    , div [ class "help-block" ] [ text "Upload a picture from your computer and make it your avatar! You can also click on your avatar!" ]
+                    , button [ class "btn btn-primary", style "margin-bottom" "10px", onClick Select ] [ text "Select file" ]
+                    , hr [] []
+                    , h3 [] [ text "Update your bio" ]
                     , div [ class "help-block" ] [ text "Update the description others see on your profile"]
                     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
                         div[][
-                            textarea [ cols 100, rows 10, id "bio" ] []
+                            textarea [ cols 100, rows 10, id "bio", placeholder user.bio, Html.Attributes.value model.bio, onInput Bio ] []
                         ]
                     ] 
-                    , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Update Bio" ]
                     , hr [] []
                     , h3 [] [ text "Tell us more about yourself" ]  
                     , div [ class "help-block" ] [ text "Fill out the following information to complete your profile" ]  
@@ -174,7 +213,14 @@ view model =
                             ]
                         ]
                     ]
-                    , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Update Info" ]
+                    ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                        div [ class "col-md-offset-2 col-md-8" ] [
+                            div[ class "form-group has-feedback" ][
+                                label [ for "mail" ] [ text "E-mail:" ]
+                                , input [ id "mail", disabled True, type_ "email", class "form-control", Html.Attributes.value user.email ] []
+                            ]
+                        ]
+                    ]
                     , hr [] []
                     , h3 [] [ text "Link your social accounts" ]
                     , div [ class "help-block" ] [ text "Share your social accounts with our users!" ]
@@ -202,11 +248,10 @@ view model =
                             ]
                         ]
                     ]
-                    , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Link Accounts" ]
                     , hr [] []
-                    , h3 [] [ text "Want to change your avatar?" ]
-                    , div [ class "help-block" ] [ text "Upload a picture from your computer and make it your avatar!" ]
-                    , button [ class "btn btn-primary", style "margin-bottom" "10px", onClick Select ] [ text "Select file" ]
+                    , h3 [] [ text "Update" ]
+                    , div [ class "help-block" ] [ text "Save all changes to your basic information" ]
+                    , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Update Settings" ]
                     , hr [] []
                     , h3 [] [ text "Delete my account" ]
                     , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account"]
@@ -227,7 +272,7 @@ view model =
                     , hr [] []
                     , h3 [] [ text "Enable two-factor authentication?" ]
                     , div [ class "help-block" ] [ text "Make your account more secure by enabling two-factor verification" ]
-                    , button [ class "btn btn-primary", style "margin-bottom" "15px", style "margin-top" "20px" ] [ text "Enable" ]                    
+                    , button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px" ] [ text "Enable" ]                    
                     , hr [] []
                     , h3 [] [ text "Want to change your password?" ]
                     , div [ class "help-block" ] [ text "Change your password by filling out the following form" ]
@@ -263,8 +308,8 @@ view model =
                 div[ class "container", style "text-align" "center" ][ 
                     h3 [] [ text "Activity in the last month" ] 
                     , div [ class "help-block" ] [ text "This graph represents your image upload activity in the last month" ]
-                    , LineChart.view1 .x .y
-                        [ Point 1 2, Point 5 5, Point 10 10 ]
+                    , div [ style "margin-left" "20%"] [ LineChart.view1 .x .y
+                        [ Point 1 2, Point 5 5, Point 10 10 ] ]
                     , hr [] []
                     , h3 [] [ text "My posts" ] 
                     , div [ class "help-block" ] [ text "This sections contains your entire post history" ]
@@ -273,11 +318,21 @@ view model =
 
 viewStringInfo: Maybe String -> String -> Html Msg
 viewStringInfo attr name = 
-    case attr of
-        Just value ->
-            div [ class "list-group-item" ] [ text (name ++ ": " ++ value) ]
-        Nothing ->
-            div [][]
+    let 
+        key = name ++ ": "
+    in
+        case attr of
+            Just value ->
+                div [ class "form-group row", style "width" "40%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                    div [ class "col-md-offset-2 col-md-8" ] [
+                        div[ class "form-group has-feedback" ][
+                            label [ for name ] [ text key ]
+                            , input [ id name, type_ "text", readonly True, class "form-control", placeholder value ] []
+                        ]
+                    ]
+                ]
+            Nothing ->
+                div [][]
 
 viewVerify: Model -> Html Msg
 viewVerify model =
@@ -328,6 +383,10 @@ verifyCode model =
       , expect = Http.expectJson VerifyResponse (field "response" Decode.bool)
     }
 
+stringEncoder: String -> String -> Encode.Value
+stringEncoder key value =
+    Encode.object [(key, Encode.string value)]
+
 put : File -> String -> Cmd Msg
 put file user = 
   Http.request
@@ -338,4 +397,17 @@ put file user =
     , expect = Http.expectJson AvatarResponse ( field "response" Decode.string )
     , timeout = Nothing
     , tracker = Nothing
+    }
+
+patch : String -> String -> String -> Cmd Msg
+patch token key value =
+    Http.request
+    {
+        method = "PATCH"
+        , headers = [ Http.header "auth" token ]
+        , url = Server.url ++ "/account/update"
+        , body = Http.jsonBody <| (stringEncoder key value)
+        , expect = Http.expectWhatever MailResponse
+        , timeout = Nothing
+        , tracker = Nothing
     }

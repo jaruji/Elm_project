@@ -12,7 +12,7 @@ fastify.register(require('fastify-multipart'))
 //enables CORS
 fastify.register(require('fastify-cors'), {
    origin: "*",
-   allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'name', 'user'],
+   allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'name', 'user', 'auth'],
    methods: ['GET', 'PUT', 'PATCH', 'POST', 'DELETE']
 })
 
