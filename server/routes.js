@@ -156,6 +156,28 @@ async function routes(fastify) {
         });
     })
 
+    fastify.get('/account/auth', async(req, res) => {
+        let auth = req.headers.auth
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
+        async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('accounts').find({token: auth}).toArray(function(err, docs){
+                if(docs.length === 0){
+                    res.code(400).send()
+                }
+                else{
+                    //hide properties that are not necessary/security risk!
+                    delete docs[0]._id
+                    delete docs[0].password
+                    delete docs[0].verifCode
+                    res.send(docs[0])
+                }
+                client.close()
+            })
+        });
+    })
+
     fastify.patch('/account/update', async(req, res) => {
         let auth = req.headers.auth
         /*

@@ -12,71 +12,90 @@ import File.Select as Select
 import Task
 import User
 import Server
+import Loading as Loader
 
 type alias Model =
-  { hover : Bool
-  , previews : List String
-  , key : Nav.Key
-  , user : Maybe User.Model
+  { hover: Bool
+  , preview: String
+  , key: Nav.Key
+  , user: Maybe User.Model
+  , tags: List String
+  , fileSize: Int
+  , title: String
+  , description: String
+  , status: Status
+  , warning: String
+  , fileStatus: FileStatus
   }
 
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model False [] key user, Cmd.none)
-
--- UPDATE
-
+  (Model False "" key user [] 0 "" "" Loading "" NotLoaded, Cmd.none)
 
 type Msg
   = Pick
+  | Title String
+  | Description String
   | DragEnter
   | DragLeave
-  | GotFiles File (List File)
-  | GotPreviews (List String)
+  | GotFiles File
+  | GetPreview String
   | Response (Result Http.Error())
-  | Upload File
+  | Upload
 
+type Status
+  = Loading
+  | Success String
+  | Failure
+
+type FileStatus
+  = NotLoaded
+  | Loaded File
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Pick ->
-      ( model
-      , Select.files ["image/*"] GotFiles
-      )
+    Pick -> 
+      (model, Select.file ["image/*"] GotFiles)
+
+    Title title ->
+      ({ model | title = title }, Cmd.none)
+
+    Description desc ->
+      ({ model | description = desc }, Cmd.none)
 
     DragEnter ->
-      ( { model | hover = True }
-      , Cmd.none
-      )
+      ({ model | hover = True }, Cmd.none)
 
     DragLeave ->
-      ( { model | hover = False }
-      , Cmd.none
+      ({ model | hover = False }, Cmd.none)
+
+    GotFiles file ->
+      ( 
+        { model | hover = False, fileSize = File.size file, fileStatus = Loaded file }
+        , Cmd.batch [ Task.perform GetPreview <| File.toUrl file ] --, put file ]
       )
 
-    GotFiles file files ->
-      ( { model | hover = False }
-      , --Task.perform GotPreviews <| Task.sequence <|
-          --List.map File.toUrl (file :: files)
-        put file
-      )
+    GetPreview url ->
+      ({ model | preview = url }, Cmd.none)
 
-    GotPreviews urls ->
-      ( { model | previews = urls }
-      , Cmd.none
-      )
-
-    Upload file ->
-      (model, put file)
+    Upload ->
+      if model.title == "" then
+        ({ model | warning = "You need to choose a title" }, Cmd.none)
+      else
+        case model.fileStatus of
+          Loaded img ->
+            ({ model | warning = "Loading" }, put img)
+          _ ->
+            ({ model | warning = "Choose an image to upload" }, Cmd.none)
 
     Response response ->
       case response of
         Ok string ->
-          (model, Cmd.none)
+          ( model, Nav.reload )
         Err log ->
-          (model, Cmd.none)
+          ({ model | warning = "Server error" }, Cmd.none)
 
 
 
@@ -96,34 +115,84 @@ view model =
   case model.user of
     Just _ ->
       div[ style "text-align" "center" ][
-        h1 [] [ text "Upload an image to our site"]
-        , div
-          [ style "border" (if model.hover then "6px dashed #2E86C1" else "6px dashed #ccc")
-          , style "border-radius" "20px"
-          , style "width" "480px"
-          , style "margin" "100px auto"
-          , style "padding" "40px"
-          , style "display" "flex"
-          , style "flex-direction" "column"
-          , style "justify-content" "center"
-          , style "align-items" "center"
-          , hijackOn "dragenter" (Decode.succeed DragEnter)
-          , hijackOn "dragover" (Decode.succeed DragEnter)
-          , hijackOn "dragleave" (Decode.succeed DragLeave)
-          , hijackOn "drop" dropDecoder
+        h1 [] [ text "Upload your image" ]
+        , div [ class "help-block" ] [ text "Fill out the following form to upload your image" ]
+        , div [ class "panel panel-default", style "width" "50%", style "margin" "20px auto"  ][
+          div [ class "panel-heading" ] [
+            --h2 [ class "panel-title" ] [
+              input [ id "title"
+              , type_ "text"
+              , placeholder "Enter title here..."
+              , style "outline" "none"
+              , style "border" "none"
+              , style "background" "Transparent"
+              , style "margin" "auto"
+              , style "width" "100%"
+              , style "font-size" "20px"
+              , Html.Attributes.value model.title
+              , onInput Title 
+              --, style "text-align" "center"
+              ] []
+            --]
           ]
-          [ button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
-          , div [ class "help-block" ] [ text "Drag and Drop an image here" ]
-          , div
-              [ style "display" "flex"
-              , style "align-items" "center"
-              , style "height" "60px"
-              , style "padding" "20px"
-              ]
-              (List.map viewPreview model.previews)
+          , if model.fileSize == 0 then
+             div [ 
+              style "border" (if model.hover then "1px solid lightgreen" else "1px solid #ccc")
+              , class "panel-body"
+              , style "padding" "60px"
+              , hijackOn "dragenter" (Decode.succeed DragEnter)
+              , hijackOn "dragover" (Decode.succeed DragEnter)
+              , hijackOn "dragleave" (Decode.succeed DragLeave)
+              --, hijackOn "drop" dropDecoder
+            ][ 
+              button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
+              , div [ class "help-block" ] [ text "Drag and Drop an image here" ]
+              
+            ]
+          else
+            div [ class "panel-body" ] [ 
+              viewPreview model.preview 
+              --, button [ class "cancel" ] [ span [ class "sr-only"] [ ] ]
           ]
-          , button [ class "btn btn-primary" ] [ text "Upload" ] 
+          , div [ class "panel-footer", style "height" "100px" ][
+            textarea [ 
+            id "bio"
+            , placeholder "Enter image description here..."
+            , style "height" "100%"
+            , style "width" "100%"
+            , style "resize" "none"
+            , style "outline" "none"
+            , style "border" "none"
+            , style "background" "Transparent"
+            , style "font-size" "15px"
+            , Html.Attributes.value model.description
+            , onInput Description ] []
+          ]
+          , div [ class "panel-footer"] [ text "Add tags here..." ]
         ]
+        , div [ class "help-block" ][
+          text ("Loaded file size: " ++ (String.fromInt model.fileSize) ++ " B")
+        ]
+        , button [ class "btn btn-primary", onClick Upload, style "margin-bottom" "10px" ] [ text "Upload" ] 
+        , case model.warning of
+          "" ->
+            text ""
+          "Loading" ->
+            div [ class "alert alert-info"
+            , style "width" "50%"
+            , style "margin" "auto"
+            , style "margin-bottom" "20px" ][
+              Loader.render Loader.Circle Loader.defaultConfig Loader.On
+              , text model.warning 
+            ]
+          _ ->
+            div [ class "alert alert-warning"
+            , style "width" "50%"
+            , style "margin" "auto"
+            , style "margin-bottom" "20px" ][ 
+              text model.warning 
+            ]
+      ]
     Nothing ->
       div [] [ 
         a [ href "/sign_in" ] [ text "Sign In" ]
@@ -137,14 +206,14 @@ viewPreview : String -> Html msg
 viewPreview url =
   div []
     [ 
-      img [src url, style "text-align" "center"] []
+      img [ src url
+      , style "text-align" "center" 
+      , style "display" "block" 
+      , style "width" "100%"
+      , style "height" "100%" 
+      --, style "width" ""
+      , style "margin" "auto" ] []
     ]
-
-
-dropDecoder : Decode.Decoder Msg
-dropDecoder =
-  Decode.at ["dataTransfer","files"] (Decode.oneOrMore GotFiles File.decoder)
-
 
 hijackOn : String -> Decode.Decoder msg -> Attribute msg
 hijackOn event decoder =

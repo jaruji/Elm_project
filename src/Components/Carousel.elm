@@ -1,4 +1,4 @@
-module Components.Carousel exposing (..)
+module Components.Carousel exposing (update, Model, Msg, init, view, subscriptions)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -15,7 +15,12 @@ type alias Model =
     source: String
     , current: Int
     , total: Int
+    , dir: Direction
   }
+
+type Direction
+  = Right
+  | Left
 
 init : Model
 init =
@@ -23,19 +28,28 @@ init =
     source = "src/img/1.png"
     , current = 1
     , total = 4
+    , dir = Right
   }
 
 --Update
 
 type Msg
-    = Switch Int
+    = SwitchRight Int
+    | SwitchLeft Int
 
 update : Msg -> Model -> Model
 update msg model =
   case msg of
-    Switch i ->
-      ({ model | current = handle i model
-      , source = "src/img/" ++ String.fromInt (handle i model) ++ ".png"
+    SwitchRight i ->
+      ({ model | current = handle (i+1) model
+         , source = "src/img/" ++ String.fromInt (handle (i+1) model) ++ ".png"
+         , dir = Right
+      })
+
+    SwitchLeft i -> 
+      ({ model | current = handle (i-1) model
+         , source = "src/img/" ++ String.fromInt (handle (i-1) model) ++ ".png"
+         , dir = Left
       })
 
 handle : Int -> Model -> Int
@@ -69,7 +83,7 @@ view model =
         , style "left" "0px"
         , style "opacity" "0.7"
         , style "outline" "none"
-        , onClick (Switch (model.current - 1)) ]
+        , onClick (SwitchLeft model.current) ]
         [ 
           Icons.chevronLeft |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
         ]
@@ -80,7 +94,7 @@ view model =
         , style "right" "0px"
         , style "opacity" "0.7"
         , style "outline" "none"
-        , onClick (Switch (model.current + 1)) ]
+        , onClick (SwitchRight model.current) ]
         [ 
           Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
         ]
@@ -90,4 +104,12 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Time.every 5000 (\_ -> Switch (model.current + 1))
+  Time.every 5000 (\_ ->
+    (
+    case model.dir of
+      Right -> 
+        SwitchRight model.current
+      Left ->
+        SwitchLeft model.current
+    )
+  )

@@ -76,8 +76,8 @@ type State
 -- to refresh page after update, will not need to "hack" anymore
 
 --todo: full screen carousel, external font header + fix nav color when clicked
---fix footer + maybe add simple contact page
--- finish login through local storage
+--fix footer + maybe add simple contact page - yeah, no
+-- DONE finish login through local storage
 -- finish all profile options
 -- create upload image formular
 -- fix loading of all images from the server
@@ -207,7 +207,6 @@ stepSignUp : Model -> (SignUp.Model, Cmd SignUp.Msg) -> (Model, Cmd Msg)
 stepSignUp model ( signup, cmd ) =
   ({ model | page = SignUp signup }, Cmd.map SignUpMsg cmd)
 
-
 --shared state!! by using message contained in signin update, i can transform state in main 
 stepSignIn : Model -> (SignIn.Model, Cmd SignIn.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
 stepSignIn model ( signin, cmd, session ) = 
@@ -227,17 +226,8 @@ subscriptions model =
       Home.subscriptions home |> Sub.map HomeMsg
     _ ->
       Sub.none
-  {--
-  case model.page of
-    Home home ->
-      Carousel.subscriptions home.carousel |> Sub.map UpdateCarousel
-    _ ->
-      Sub.none
-  --}
-
-
+ 
 -- VIEW
-
 
 view : Model -> Browser.Document Msg
 view model =
@@ -382,16 +372,6 @@ viewNav model =
       ] 
     ]
 
-selectedLink: String -> Model -> Attribute Msg
-selectedLink myUrl model =
-  let
-    url = Url.toString model.url
-  in
-    if myUrl == url then
-      style "color" "white"
-    else
-      style "" ""
-
 viewBody: Model -> String -> Html Msg
 viewBody model error =
   div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
@@ -405,14 +385,12 @@ viewLoading model =
     , Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
   ]
 
---viewSignUpForm: Model -> Html Msg
---viewBody model =
-
 viewFooter: Html Msg
 viewFooter =
   div 
   [
       style "background-color" "white"
+      , style "bottom" "0%"
       , style "height" "100px"
       , style "text-align" "center"
       , style "color" "white"
@@ -421,9 +399,7 @@ viewFooter =
       , class "container-fluid text-center"
   ] [ 
     ul [ class "nav nav-pills" ] [
-      li [][ a [ href "", style "color" "white" ] [ text "© 2020 Juraj Bedej" ] ]
-      , li [][ a [ href "https://github.com/jaruji?tab=repositories", style "color" "white" ] [ text "Source"] ]
-      , li [][ a [ href "/contact", style "color" "white" ] [ text "Contact me" ] ]
+      li [][ a [ href "https://github.com/jaruji?tab=repositories", style "color" "white" ] [ text "© 2020 Juraj Bedej" ] ]
     ]
   ]
 
@@ -436,7 +412,7 @@ routeUrl url model =
       oneOf   --rerouting based on url change!
         [ route (s "gallery")
             ( 
-              stepGallery model (Gallery.init)
+              stepGallery model (Gallery.init (getUser model.state) model.key )
             )
           , route (s "sign_up")
             ( 
@@ -469,7 +445,7 @@ routeUrl url model =
             ( {model | page = Loading }, loadUser token )
 
           Failure ->
-            ( {model | page = NotFound "We are having server issues, please try again later"}, Cmd.none)
+            ( {model | page = NotFound "We are currently having server issues, please try again later"}, Cmd.none)
           
           _ ->
             case Parser.parse parser url of
@@ -482,6 +458,8 @@ routeUrl url model =
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =
   Parser.map handler parser
+
+--getter for user from current state
 
 getUser: State -> Maybe User.Model
 getUser state =
@@ -506,10 +484,10 @@ tokenEncoder token =
 loadUser: String -> Cmd Msg
 loadUser token =
   Http.request
-    { method = "POST"
-    , headers = []
-    , url = Server.url ++ "/account/sign_in"
-    , body = Http.jsonBody <| tokenEncoder token 
+    { method = "GET"
+    , headers = [ Http.header "auth" token ]
+    , url = Server.url ++ "/account/auth"
+    , body = Http.emptyBody 
     , expect = Http.expectJson Response User.decodeUser
     , timeout = Nothing
     , tracker = Nothing
