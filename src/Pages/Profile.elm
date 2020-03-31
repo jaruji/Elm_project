@@ -274,11 +274,18 @@ view model =
                                 , hr [] []
                             ]
                         _ -> 
-                            div[ class "alert alert-success", style "width" "30%", style "margin" "auto" ][ text "Your account is verified" ]
+                            div[ class "alert alert-success", style "width" "20%", style "margin" "auto" ][ text "Your account is verified" ]
                     , hr [] []
                     , h3 [] [ text "Enable two-factor authentication?" ]
                     , div [ class "help-block" ] [ text "Make your account more secure by enabling two-factor verification" ]
-                    , button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px" ] [ text "Enable" ]                    
+                    , case user.verif of
+                        True ->
+                            button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px" ] [ text "Enable" ]                    
+                        False ->
+                            div [] [
+                                button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px", disabled True ] [ text "Enable" ]
+                                , div [ class "alert alert-warning", style "width" "20%", style "margin" "auto" ] [ text "You must verify your e-mail address first!" ]
+                            ]
                     , hr [] []
                     , h3 [] [ text "Want to change your password?" ]
                     , div [ class "help-block" ] [ text "Change your password by filling out the following form" ]

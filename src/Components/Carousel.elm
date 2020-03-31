@@ -56,7 +56,10 @@ view model =
     div [class "container-fluid text-center"
         , style "height" "1000px"
         , style "background-image" url
-        , style "background-size" "cover" ]
+        , style "background-color" "gray"
+        , style "background-size" "cover"
+        , style "transition" "all .5s ease-in-out"
+ ]
     [
       div[ style "margin-top" "500px" ][
         button [ style "background" "Transparent"
@@ -82,11 +85,6 @@ view model =
           Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
         ]
       ]
-        {--
-        , div[style "text-align" "center"][
-          text ("<" ++ String.fromInt model.current ++ "/" ++ String.fromInt(model.total) ++ ">")
-        ]
-        --}
     ]
 
 

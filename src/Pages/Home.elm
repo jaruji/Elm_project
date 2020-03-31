@@ -36,11 +36,9 @@ view model =
   in
     div [ ] [
       div [][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
-      --, h3 [] [ text "Welcome to the Elm Gallery" ]
     ]
 
-{--
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
---} 

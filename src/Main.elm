@@ -115,7 +115,6 @@ type Msg
   | UploadMsg Upload.Msg
   | ProfileMsg Profile.Msg
   | UpdateSearch Search.Msg
-  | UpdateCarousel Carousel.Msg
   | LogOut
   | Response (Result Http.Error User.Model)
 
@@ -139,14 +138,6 @@ update msg model =
     UpdateSearch mesg -> 
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
        stepSearch model (Search.update mesg (Search.getModel model.search))
-
-    UpdateCarousel mesg ->
-      case model.page of
-        Home home -> 
-          (model, Cmd.none)
-          --({model | page = setCarousel mesg home}, Cmd.none)
-        _ -> 
-          (model, Cmd.none)
 
     SignUpMsg mesg ->
       case model.page of
@@ -233,7 +224,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
   case model.page of
     Home home ->
-      Carousel.subscriptions home.carousel |> Sub.map UpdateCarousel
+      Home.subscriptions home |> Sub.map HomeMsg
     _ ->
       Sub.none
   {--
@@ -360,15 +351,15 @@ viewBanner model link =
 
 viewNav: Model -> Html Msg
 viewNav model = 
-  div [ class "navbar navbar-inverse navbar-fixed-top" ]
+  div [ class "navbar navbar-inverse navbar-fixed-top", style "opacity" "0.95" ]
     [ 
-      div [ class "container-fluid"][
-        div [ class "navbar-header"][
-          div [ class "navbar-brand"][ 
+      div [ class "container-fluid" ][
+        div [ class "navbar-header" ][
+          div [ class "navbar-brand" ][ 
             viewImage "../src/img/Elm_logo.svg.png" 35 35 
             ]
         ]
-        , ul [ class "nav navbar-nav"][
+        , ul [ class "nav navbar-nav" ][
             li [] [ a [ href "/" ] [ text "Home"] ]
             , li [] [ a [ href "/gallery" ] [ text "Gallery" ] ]
             , li [] [ a [ href "/upload" ] [ text "Upload Image"] ]
@@ -422,10 +413,10 @@ viewFooter =
   div 
   [
       style "background-color" "white"
-      , style "height" "200px"
+      , style "height" "100px"
       , style "text-align" "center"
       , style "color" "white"
-      , style "padding-top" "100px"
+      , style "padding-top" "25px"
       , style "background-color" "#2f2f2f"
       , class "container-fluid text-center"
   ] [ 
