@@ -20,6 +20,7 @@ viewFacebook url =
                  , style "border" "0px solid"
                  , style "box-shadow" "0px 12px 15px rgba(0, 0, 0, 0.4)"
                  , style "transition" "all 0.3s ease 0s"
+                 , style "outline" "none"
         ] [ Icons.facebook |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]
 
@@ -36,6 +37,7 @@ viewTwitter url =
                  , style "border" "0px solid"
                  , style "box-shadow" "0px 12px 15px rgba(0, 0, 0, 0.4)"
                  , style "transition" "all 0.3s ease 0s"
+                 , style "outline" "none"
         ] [ Icons.twitter |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]
 
@@ -52,5 +54,6 @@ viewGithub url =
                  , style "border" "0px solid" 
                  , style "box-shadow" "0px 12px 15px rgba(0, 0, 0, 0.4)"
                  , style "transition" "all 0.3s ease 0s"
+                 , style "outline" "none"
         ] [ Icons.github |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]

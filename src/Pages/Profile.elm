@@ -32,11 +32,17 @@ type alias Point =
   }
 
 type Msg
+-- Switch msg are used for switching tabs
   = SwitchInformation
   | SwitchSettings
   | SwitchSecurity
   | SwitchHistory
+-- Here are msgs needed for updating and handling all inputs
   | Bio String
+  --| OldPassword String
+  --| NewPassword String
+  --| NewPasswordA String
+--submit update
   | UpdateSettings
   | Request
   | Code String
@@ -260,7 +266,7 @@ view model =
             Security ->
                 div[][
                     h3 [] [ text "Verify your account" ]
-                    , div [ class "help-block" ] [ text "Verification is required for certain tasks"]
+                    , div [ class "help-block" ] [ text "Verification is required for the completion of certain tasks"]
                     , case user.verif of
                         False ->
                             div[][
@@ -268,7 +274,7 @@ view model =
                                 , hr [] []
                             ]
                         _ -> 
-                            div[ class "alert alert-success" ][ text "Your account is verified" ]
+                            div[ class "alert alert-success", style "width" "30%", style "margin" "auto" ][ text "Your account is verified" ]
                     , hr [] []
                     , h3 [] [ text "Enable two-factor authentication?" ]
                     , div [ class "help-block" ] [ text "Make your account more secure by enabling two-factor verification" ]

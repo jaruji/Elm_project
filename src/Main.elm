@@ -271,7 +271,7 @@ view model =
         { title = "Home"
         , body = [
           viewHeader model
-          , viewBanner (Server.url ++ "/img/test.jpg")
+          --, viewBanner model (Server.url ++ "/img/test.jpg")
           , Home.view home |> Html.map HomeMsg
           , viewFooter
           ]
@@ -336,22 +336,27 @@ viewHeader model =
         viewNav model
     ]
 
-viewBanner: String -> Html Msg
-viewBanner link =
+viewBanner: Model -> String -> Html Msg
+viewBanner model link =
   let 
     url = "url(" ++ link ++ ")"
   in
     div [ 
     style "background-image" url
     , style "width" "100%"
-    , style "height" "300px"
+    , style "height" "250px"
     , style "color" "white"
-    , style "margin-top" "60px" ][
-      h1 [ style "text-align" "center"] [ text "Welcome to Elm Gallery" ]
-      , div [ class "help-block" ] [
-        text "Site for sharing your images, powered by Elm"
+    , style "margin-top" "60px" ][  
+      case model.state of
+        Ready session ->
+          case session.user of
+            Just user ->
+              h1 [ style "text-align" "center" ] [ text ("Welcome to Elm Gallery, " ++ user.username) ]
+            Nothing -> 
+              h1 [ style "text-align" "center" ] [ text "Welcome to Elm Gallery" ]
+        _ ->
+          text ""
       ]
-    ]
 
 viewNav: Model -> Html Msg
 viewNav model = 
@@ -424,9 +429,9 @@ viewFooter =
       , style "background-color" "#2f2f2f"
       , class "container-fluid text-center"
   ] [ 
-    ul [ class "nav nav-pills", style "text-align" "center" ] [
+    ul [ class "nav nav-pills" ] [
       li [][ a [ href "", style "color" "white" ] [ text "© 2020 Juraj Bedej" ] ]
-      , li [][ a [ href "https://github.com/jaruji?tab=repositories", style "color" "white"] [ text "Source"] ]
+      , li [][ a [ href "https://github.com/jaruji?tab=repositories", style "color" "white" ] [ text "Source"] ]
       , li [][ a [ href "/contact", style "color" "white" ] [ text "Contact me" ] ]
     ]
   ]
@@ -471,8 +476,10 @@ routeUrl url model =
     case model.state of
           NotReady token ->
             ( {model | page = Loading }, loadUser token )
+
           Failure ->
             ( {model | page = NotFound "We are having server issues, please try again later"}, Cmd.none)
+          
           _ ->
             case Parser.parse parser url of
               Just urll ->

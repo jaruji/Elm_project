@@ -6,6 +6,7 @@ import Html.Events exposing (..)
 import Browser.Navigation as Nav
 import Components.Carousel as Carousel
 import User
+import Server
 
 
 type alias Model =
@@ -30,16 +31,13 @@ update msg model =
 
 view: Model -> Html Msg
 view model =
-  div [ ] [
-    div [ class "container-fluid text-center", style "height" "800px" ][
-      case model.user of
-        Just user ->
-          h1 [ style "margin-top" "100px" ] [ text ("Welcome, " ++ user.username) ]
-        Nothing ->
-          h1 [ style "margin-top" "100px" ] [ text "Welcome to our Website" ]
+  let
+    url = "url(" ++ Server.url ++ "/img/background.jpg"  ++ ")"
+  in
+    div [ ] [
+      div [][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
+      --, h3 [] [ text "Welcome to the Elm Gallery" ]
     ]
-    --, div [][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
-  ]
 
 {--
 subscriptions : Model -> Sub Msg
