@@ -19,6 +19,16 @@ function INSERT(dbName, obj){
     });
 }
 
+function getAllByKey(dbName, key){
+    MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+        assert.equal(null, err);
+        var db = client.db("database");
+        var cursor = await db.collection(dbName).distinct(key)
+        console.log(cursor)
+        client.close()
+    });
+}
+
 function createAccount(obj){
     obj.verif = false
     obj.verifCode = gpc(6)
@@ -202,9 +212,11 @@ async function routes(fastify) {
     //upload files to the server by posting to this url
     fastify.put('/upload/image', async(req, res) => {
         let dir = "./data/img"
+        let auth = req.headers.auth
         console.log("Uploading a file to the server")
-        filename = req.headers.name;           //get name of received file
-        pipeline(                                 //store initial file to specified directory
+        filename = crypto.randomBytes(20).toString('hex') + path.extname(req.headers.name);
+        INSERT("images", {file: filename}) 
+        pipeline(
           req.body,
           fs.createWriteStream(`${dir}/${filename}`),
           (err) => {
@@ -259,8 +271,9 @@ async function routes(fastify) {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         res.send({file: "http://localhost:3000/img/pexels-photo-736230.jpeg"})
-
+        getAllByKey("images", "file")
     })
+
 }
 
 module.exports = routes

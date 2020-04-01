@@ -13,12 +13,14 @@ import Task
 import User
 import Server
 import Loading as Loader
+import Tag
 
 type alias Model =
   { hover: Bool
   , preview: String
   , key: Nav.Key
   , user: Maybe User.Model
+  , tag: String
   , tags: List String
   , fileSize: Int
   , title: String
@@ -31,7 +33,7 @@ type alias Model =
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model False "" key user [] 0 "" "" Loading "" NotLoaded, Cmd.none)
+  (Model False "" key user "" [] 0 "" "" Loading "" NotLoaded, Cmd.none)
 
 type Msg
   = Pick
@@ -43,6 +45,8 @@ type Msg
   | GetPreview String
   | Response (Result Http.Error())
   | Upload
+  | KeyHandler Int
+  | Tag String
 
 type Status
   = Loading
@@ -86,7 +90,11 @@ update msg model =
       else
         case model.fileStatus of
           Loaded img ->
-            ({ model | warning = "Loading" }, put img)
+            case model.user of
+              Just user ->
+                ({ model | warning = "Loading" }, put img user.token)
+              Nothing ->
+                (model, Cmd.none)
           _ ->
             ({ model | warning = "Choose an image to upload" }, Cmd.none)
 
@@ -97,10 +105,19 @@ update msg model =
         Err log ->
           ({ model | warning = "Server error" }, Cmd.none)
 
-
+    KeyHandler keyCode ->
+      case keyCode of
+        13 ->
+          if model.tag /= "" then
+            ({ model | tags = model.tag :: model.tags, tag = ""}, Cmd.none)
+          else 
+            (model, Cmd.none)
+        _ ->
+          (model, Cmd.none)
+    Tag tag ->
+      ({ model | tag = tag}, Cmd.none)
 
 -- SUBSCRIPTIONS
-
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -117,23 +134,20 @@ view model =
       div[ style "text-align" "center" ][
         h1 [] [ text "Upload your image" ]
         , div [ class "help-block" ] [ text "Fill out the following form to upload your image" ]
-        , div [ class "panel panel-default", style "width" "50%", style "margin" "20px auto"  ][
+        , div [ class "panel panel-default", style "width" "50%", style "margin" "20px auto" ][
           div [ class "panel-heading" ] [
-            --h2 [ class "panel-title" ] [
-              input [ id "title"
-              , type_ "text"
-              , placeholder "Enter title here..."
-              , style "outline" "none"
-              , style "border" "none"
-              , style "background" "Transparent"
-              , style "margin" "auto"
-              , style "width" "100%"
-              , style "font-size" "20px"
-              , Html.Attributes.value model.title
-              , onInput Title 
-              --, style "text-align" "center"
-              ] []
-            --]
+            input [ id "title"
+            , type_ "text"
+            , placeholder "Enter title here..."
+            , style "outline" "none"
+            , style "border" "none"
+            , style "background" "Transparent"
+            , style "margin" "auto"
+            , style "width" "100%"
+            , style "font-size" "20px"
+            , Html.Attributes.value model.title
+            , onInput Title 
+            ] []
           ]
           , if model.fileSize == 0 then
              div [ 
@@ -168,7 +182,26 @@ view model =
             , Html.Attributes.value model.description
             , onInput Description ] []
           ]
-          , div [ class "panel-footer"] [ text "Add tags here..." ]
+          , div [ class "panel-footer" ] [
+            input [ id "tags"
+            , type_ "text"
+            , placeholder "Press Enter to add tags"
+            , style "outline" "none"
+            , style "border" "none"
+            , style "background" "Transparent"
+            , style "margin" "auto"
+            , style "width" "100%"
+            , style "font-size" "15px"
+            , Html.Attributes.value model.tag
+            , onInput Tag
+            , keyPress KeyHandler
+            ] []
+          ]
+          , case List.isEmpty model.tags of
+            True -> 
+              div [] []
+            False ->
+              div [ class "panel-footer", style "text-align" "left" ] ( List.map Tag.view (List.reverse model.tags) )
         ]
         , div [ class "help-block" ][
           text ("Loaded file size: " ++ (String.fromInt model.fileSize) ++ " B")
@@ -215,6 +248,10 @@ viewPreview url =
       , style "margin" "auto" ] []
     ]
 
+keyPress : (Int -> msg) -> Attribute msg
+keyPress tagger =
+  on "keydown" (Decode.map tagger keyCode)
+
 hijackOn : String -> Decode.Decoder msg -> Attribute msg
 hijackOn event decoder =
   preventDefaultOn event (Decode.map hijack decoder)
@@ -224,11 +261,11 @@ hijack : msg -> (msg, Bool)
 hijack msg =
   (msg, True)
 
-put : File -> Cmd Msg
-put file = 
+put : File -> String -> Cmd Msg
+put file token = 
   Http.request
     { method = "PUT"
-    , headers = [ Http.header "name" (File.name file) ]
+    , headers = [ Http.header "name" (File.name file), Http.header "auth" token ]
     , url = Server.url ++ "/upload/image"
     , body = Http.fileBody file
     , expect = Http.expectWhatever Response

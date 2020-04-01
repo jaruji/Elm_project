@@ -7,7 +7,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode as Json
+import Json.Decode as Decode
 import FeatherIcons as Icons
 
 
@@ -51,12 +51,12 @@ update msg model =
       }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
     KeyHandler key ->
       case key of
-      13 ->                       --on Enter down
-        ({model | finalValue = model.searchValue
-        , searchValue = ""
-        }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
-      _ ->
-        ( model, Cmd.none )
+        13 ->                       --on Enter down
+          ({model | finalValue = model.searchValue
+          , searchValue = ""
+          }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
+        _ ->
+          ( model, Cmd.none )
 
 getValue : Model -> String
 getValue =
@@ -64,7 +64,7 @@ getValue =
 
 keyPress : (Int -> msg) -> Attribute msg
 keyPress tagger =
-  on "keydown" (Json.map tagger keyCode)
+  on "keydown" (Decode.map tagger keyCode)
 
 --View
 view :  Model -> Html Msg
