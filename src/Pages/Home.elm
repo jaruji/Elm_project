@@ -7,6 +7,7 @@ import Browser.Navigation as Nav
 import Components.Carousel as Carousel
 import User
 import Server
+import Array exposing (..)
 
 
 type alias Model =
@@ -21,7 +22,11 @@ type Msg
 
 init: Maybe User.Model -> Nav.Key -> ( Model, Cmd Msg )
 init user key =
-  ( Model key Carousel.init user, Cmd.none )
+  ( Model key 
+    (Carousel.init (Array.fromList [ "./src/img/1.jpg", "./src/img/2.jpg", "./src/img/3.jpg", "./src/img/4.jpg" ]))
+     user
+     , Cmd.none 
+  )
 
 update: Msg -> Model -> ( Model, Cmd Msg )
 update msg model =

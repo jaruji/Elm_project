@@ -7,14 +7,14 @@ import FeatherIcons as Icons
 import Task
 import Time exposing (..)
 import Server
+import Array exposing (..)
 
 --Model
 
 type alias Model =
   {
-    source: String
+    source: Array String
     , current: Int
-    , total: Int
     , dir: Direction
   }
 
@@ -22,12 +22,11 @@ type Direction
   = Right
   | Left
 
-init : Model
-init =
+init : Array String -> Model
+init imgs =
   {
-    source = "src/img/1.png"
-    , current = 1
-    , total = 4
+    source = imgs
+    , current = 0
     , dir = Right
   }
 
@@ -41,68 +40,88 @@ update : Msg -> Model -> Model
 update msg model =
   case msg of
     SwitchRight i ->
-      ({ model | current = handle (i+1) model
-         , source = "src/img/" ++ String.fromInt (handle (i+1) model) ++ ".png"
+      ({ model | current = handle (i + 1) model
          , dir = Right
       })
 
     SwitchLeft i -> 
-      ({ model | current = handle (i-1) model
-         , source = "src/img/" ++ String.fromInt (handle (i-1) model) ++ ".png"
+      ({ model | current = handle (i - 1) model
          , dir = Left
       })
 
 handle : Int -> Model -> Int
 handle current model =
   if(current < 1) then
-    model.total
-  else if (current > model.total) then
-    1
+    (Array.length model.source - 1)
+  else if (current >= Array.length model.source) then
+    0
   else
     current
 
 --View
 view : Model -> Html Msg
 view model =
-  let
-    url = "url(" ++ model.source ++ ")"
-  in
-    div [class "container-fluid text-center"
-        , style "height" "1000px"
-        , style "background-image" url
-        , style "background-color" "gray"
-        , style "background-size" "cover"
-        , style "transition" "all .5s ease-in-out"
- ]
-    [
-      div[ style "margin-top" "500px" ][
-        button [ style "background" "Transparent"
-        , style "border" "none"
-        , style "color" "white"
-        , style "position" "absolute"
-        , style "left" "0px"
-        , style "opacity" "0.7"
-        , style "outline" "none"
-        , onClick (SwitchLeft model.current) ]
-        [ 
-          Icons.chevronLeft |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+  case Array.get model.current model.source of
+    Just img ->
+      let 
+        url = "url(" ++ img ++ ")"
+      in
+        div [class "container-fluid text-center"
+            , style "height" "1000px"
+            , style "background-image" url
+            , style "background-color" "gray"
+            , style "background-size" "cover"
+            , style "transition" "all .5s ease-in-out"
+        ][
+          div[ style "margin-top" "450px" ][
+            button [ style "background" "Transparent"
+            , style "border" "none"
+            , style "color" "white"
+            , style "position" "absolute"
+            , style "left" "0px"
+            , style "opacity" "0.7"
+            , style "outline" "none"
+            , onClick (SwitchLeft model.current) ]
+            [ 
+              Icons.chevronLeft |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+            ]
+            , button  [ style "background" "Transparent"
+            , style "border" "none"
+            , style "color" "white"
+            , style "position" "absolute"
+            , style "right" "0px"
+            , style "opacity" "0.7"
+            , style "outline" "none"
+            , onClick (SwitchRight model.current) ]
+            [ 
+              Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+            ]
+            , h1 [ class "lead"
+            , style "color" "white"
+            , style "font-size" "60px" 
+            , style "opacity" "0.9" ][
+              text "Find Inspiration." 
+            ]
+            , div [ style "margin-top" "350px" ] (Array.toList (Array.map viewBullet model.source ))
+          ]
         ]
-        , button  [ style "background" "Transparent"
-        , style "border" "none"
-        , style "color" "white"
-        , style "position" "absolute"
-        , style "right" "0px"
-        , style "opacity" "0.7"
-        , style "outline" "none"
-        , onClick (SwitchRight model.current) ]
-        [ 
-          Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
-        ]
-      ]
-    ]
+    Nothing ->
+      div[][]
 
 
-subscriptions : Model -> Sub Msg
+viewBullet: String -> Html msg
+viewBullet string = 
+  button[ style "outline" "none" 
+  , style "border" "none"
+  , style "background" "Transparent"
+  , style "opacity" "0.7"
+  , style "color" "white"
+  , style "position" "relative"
+  ][
+    Icons.circle |> Icons.withSize 30 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+  ]
+
+subscriptions: Model -> Sub Msg
 subscriptions model =
   Time.every 5000 (\_ ->
     (

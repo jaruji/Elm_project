@@ -9,6 +9,8 @@ const crypto = require('crypto')
 
 const url = 'mongodb://localhost:27017';
 
+//TODO: remove db overhead, stay connected to database at all times? :) 
+
 function INSERT(dbName, obj){
     MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
     async function(err, client) {
@@ -27,6 +29,19 @@ function getAllByKey(dbName, key){
         console.log(cursor)
         client.close()
     });
+}
+
+async function getUserByToken(token){
+    var ret
+    MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+        assert.equal(null, err);
+        var db = client.db("database");
+        var cursor = await db.collection("accounts").find({token: token}).toArray(async function(err, docs){
+            ret = docs[0].username
+            client.close()
+            return ret;
+        })
+    })
 }
 
 function createAccount(obj){
@@ -211,11 +226,18 @@ async function routes(fastify) {
 
     //upload files to the server by posting to this url
     fastify.put('/upload/image', async(req, res) => {
-        let dir = "./data/img"
+        let dir = "./server/data/img"
         let auth = req.headers.auth
         console.log("Uploading a file to the server")
         filename = crypto.randomBytes(20).toString('hex') + path.extname(req.headers.name);
-        INSERT("images", {file: filename}) 
+        /*
+        let user = await getUserByToken(auth)
+
+        if(user === undefined){
+            res.code(400).send(new Error("Unauthorized uploader"))
+            return
+        }*/
+        INSERT("images", {file: filename})
         pipeline(
           req.body,
           fs.createWriteStream(`${dir}/${filename}`),
@@ -239,7 +261,7 @@ async function routes(fastify) {
         user = req.headers["user"];
         filename = user + path.extname(req.headers["name"]);    //get name of received file
         let link = "http://localhost:3000/img/profile/" + filename
-        dir = "./data/img/profile/"
+        dir = "./server/data/img/profile/"
         pipeline(                                 //store initial file to specified directory
           req.body,
           fs.createWriteStream(`${dir}/${filename}`),
@@ -263,7 +285,6 @@ async function routes(fastify) {
             }
           }
         )
-
     })
 
     
