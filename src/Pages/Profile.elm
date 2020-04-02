@@ -340,7 +340,7 @@ viewStringInfo attr name =
                     div [ class "col-md-offset-2 col-md-8" ] [
                         div[ class "form-group has-feedback" ][
                             label [ for name ] [ text key ]
-                            , input [ id name, type_ "text", readonly True, class "form-control", placeholder value ] []
+                            , input [ id name, type_ "text", style "text-align" "center", readonly True, class "form-control", placeholder value ] []
                         ]
                     ]
                 ]

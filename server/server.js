@@ -1,18 +1,16 @@
-//imports
 const fastify = require('fastify')()
 const path = require('path')
-const fs = require('fs');
-
-
-//routers
 
 fastify.register(require('./routes'), { prefix: '' })
+
+//handle multipart requests
 fastify.register(require('fastify-multipart'))
 
 //enables CORS
 fastify.register(require('fastify-cors'), {
    origin: "*",
-   allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'name', 'user', 'auth'],
+   allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'Content-Disposition'
+   , 'name', 'user', 'auth', 'title', 'description', 'tags' ],
    methods: ['GET', 'PUT', 'PATCH', 'POST', 'DELETE']
 })
 
@@ -27,11 +25,6 @@ fastify.addContentTypeParser('*', function (req, done) {
   done(null, req)
 })
 
-//listener
-//let obj = fs.readFileSync('accounts.json')
-//console.log(obj)
-//let dict = JSON.parse(obj);
-//console.log(dict.password)
 fastify.listen(3000, (err) => {
     if (err) {
         console.log(err)

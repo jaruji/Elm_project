@@ -66,11 +66,14 @@ view model =
       let 
         url = "url(" ++ img ++ ")"
       in
-        div [class "container-fluid text-center"
+        div [class "container-fluid text-center image"
             , style "height" "1000px"
+            , style "width" "100%"
             , style "background-image" url
             , style "background-color" "gray"
             , style "background-size" "cover"
+            , style "overflow" "hidden"
+            --, style "box-shadow" "0px 10px 5px #888, 0px -10px 5px #888"
             , style "transition" "all .5s ease-in-out"
         ][
           div[ style "margin-top" "450px" ][
@@ -96,11 +99,20 @@ view model =
             [ 
               Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
             ]
+
             , h1 [ class "lead"
             , style "color" "white"
             , style "font-size" "60px" 
             , style "opacity" "0.9" ][
-              text "Find Inspiration." 
+              text "Get Creative." 
+            ]
+            
+            , h3 [ class "lead" 
+            , style "color" "white" 
+            , style "font-size" "30px"
+            , style "opacity" "0.9"
+            , style "margin-top" "-25px" ][
+              text "Website created for sharing images - powered by Elm."
             ]
             , div [ style "margin-top" "350px" ] (Array.toList (Array.map viewBullet model.source ))
           ]
@@ -118,7 +130,7 @@ viewBullet string =
   , style "color" "white"
   , style "position" "relative"
   ][
-    Icons.circle |> Icons.withSize 30 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+    Icons.circle |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
   ]
 
 subscriptions: Model -> Sub Msg

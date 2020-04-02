@@ -29,6 +29,7 @@ type alias Model =
     --, history: List String
   }
 
+--decode logged in user
 decodeUser: Decode.Decoder Model
 decodeUser =
     Decode.succeed Model
@@ -44,6 +45,25 @@ decodeUser =
         |> required "twitter" (nullable Decode.string)
         |> required "github" (nullable Decode.string)
         |> required "token" Decode.string
+
+--if user is not logged in and we only preview their profile
+--server wont share user token and email with us - they are hidden
+decodeUserNotLoggedIn: Decode.Decoder Model
+decodeUserNotLoggedIn = 
+    Decode.succeed Model
+        |> required "username" Decode.string 
+        |> optional "email" Decode.string "Hidden"
+        |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
+        |> optional "bio" Decode.string "No description"
+        |> required "verif" Decode.bool
+        |> required "firstName" (nullable Decode.string)
+        |> required "surname" (nullable Decode.string)
+        |> required "occupation" (nullable Decode.string)
+        |> required "facebook" (nullable Decode.string)
+        |> required "twitter" (nullable Decode.string)
+        |> required "github" (nullable Decode.string)
+        |> optional "token" Decode.string "Hidden"
+
 
 port storeToken : Maybe String -> Cmd msg
 

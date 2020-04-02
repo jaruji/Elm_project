@@ -10,6 +10,7 @@ import Json.Encode as Encode
 import File exposing (File)
 import File.Select as Select
 import Task
+import Time
 import User
 import Server
 import Loading as Loader
@@ -23,6 +24,7 @@ type alias Model =
   , tag: String
   , tags: List String
   , fileSize: Int
+  , mime: String
   , title: String
   , description: String
   , status: Status
@@ -33,7 +35,7 @@ type alias Model =
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model False "" key user "" [] 0 "" "" Loading "" NotLoaded, Cmd.none)
+  (Model False "" key user "" [] 0 "" "" "" Loading "" NotLoaded, Cmd.none)
 
 type Msg
   = Pick
@@ -45,6 +47,10 @@ type Msg
   | GetPreview String
   | Response (Result Http.Error())
   | Upload
+  | RemoveImg
+  | RemoveTitle
+  | RemoveDesc
+  | RemoveTags
   | KeyHandler Int
   | Tag String
 
@@ -61,7 +67,7 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     Pick -> 
-      (model, Select.file ["image/*"] GotFiles)
+      (model, Select.file ["image/*", "application/pdf"] GotFiles)
 
     Title title ->
       ({ model | title = title }, Cmd.none)
@@ -77,7 +83,7 @@ update msg model =
 
     GotFiles file ->
       ( 
-        { model | hover = False, fileSize = File.size file, fileStatus = Loaded file }
+        { model | hover = False, fileSize = File.size file, mime = File.mime file, fileStatus = Loaded file }
         , Cmd.batch [ Task.perform GetPreview <| File.toUrl file ] --, put file ]
       )
 
@@ -86,13 +92,13 @@ update msg model =
 
     Upload ->
       if model.title == "" then
-        ({ model | warning = "You need to choose a title" }, Cmd.none)
+        ({ model | warning = "You need to choose a title for your image" }, Cmd.none)
       else
         case model.fileStatus of
           Loaded img ->
             case model.user of
               Just user ->
-                ({ model | warning = "Loading" }, put img user.token)
+                ({ model | warning = "Loading" }, put model img user.token)
               Nothing ->
                 (model, Cmd.none)
           _ ->
@@ -103,7 +109,7 @@ update msg model =
         Ok string ->
           ( model, Nav.reload )
         Err log ->
-          ({ model | warning = "Server error" }, Cmd.none)
+          ({ model | warning = "Connection error, please try again later" }, Cmd.none)
 
     KeyHandler keyCode ->
       case keyCode of
@@ -114,8 +120,23 @@ update msg model =
             (model, Cmd.none)
         _ ->
           (model, Cmd.none)
+
     Tag tag ->
-      ({ model | tag = tag}, Cmd.none)
+      ({ model | tag = tag }, Cmd.none)
+
+    RemoveImg ->
+      ({ model | fileStatus = NotLoaded, fileSize = 0 }, Cmd.none)
+
+    RemoveTitle ->
+      ({ model | title = "" }, Cmd.none)
+
+    RemoveDesc ->
+      ({ model | description = "" }, Cmd.none)
+
+    RemoveTags ->
+      ({ model | tags = [] }, Cmd.none)
+
+
 
 -- SUBSCRIPTIONS
 
@@ -134,9 +155,10 @@ view model =
       div[ style "text-align" "center" ][
         h1 [] [ text "Upload your image" ]
         , div [ class "help-block" ] [ text "Fill out the following form to upload your image" ]
-        , div [ class "panel panel-default", style "width" "50%", style "margin" "20px auto" ][
+        , div [ class "panel panel-default", style "width" "60%", style "margin" "20px auto" ][
           div [ class "panel-heading" ] [
-            input [ id "title"
+            cancelButton RemoveTitle "28"
+            , input [ id "title"
             , type_ "text"
             , placeholder "Enter title here..."
             , style "outline" "none"
@@ -164,8 +186,9 @@ view model =
               
             ]
           else
-            div [ class "panel-body" ] [ 
-              viewPreview model.preview 
+            div [ class "panel-body" ] [
+              cancelButton RemoveImg "35"  
+              , viewPreview model.mime model.preview
               --, button [ class "cancel" ] [ span [ class "sr-only"] [ ] ]
           ]
           , div [ class "panel-footer", style "height" "100px" ][
@@ -235,37 +258,70 @@ view model =
       ]
 
 
-viewPreview : String -> Html msg
-viewPreview url =
+viewPreview: String -> String -> Html msg
+viewPreview mime url =
   div []
     [ 
-      img [ src url
-      , style "text-align" "center" 
-      , style "display" "block" 
-      , style "width" "100%"
-      , style "height" "100%" 
-      --, style "width" ""
-      , style "margin" "auto" ] []
+      case mime of
+        "application/pdf" ->
+          embed[ 
+          --option to upload .pdf files too
+          src url
+          , style "type" "application/pdf"
+          , style "scrollbar" "0"
+          , style "width" "100%"
+          , style "margin" "auto"
+          , style "display" "block"
+          --, style "max-height" "50000px"
+          ][]
+        _ ->
+          img [ src url
+          , style "text-align" "center" 
+          , style "display" "block" 
+          , style "width" "100%"
+          --, style "height" "100%" 
+          , style "margin" "auto" ] []
     ]
 
-keyPress : (Int -> msg) -> Attribute msg
+cancelButton: Msg -> String -> Html Msg
+cancelButton msg offset =
+  button [
+  style "position" "absolute"
+  , style "top" (offset ++ "%")
+  , style "right" "21%"
+  , style "background" "Transparent"
+  , style "outline" "none"
+  , style "border" "none"
+  , style "color" "red"
+  , style "opacity" "0.8"
+  , onClick msg
+  ][ span [ class "glyphicon glyphicon-remove" ] [] ]
+
+
+keyPress: (Int -> msg) -> Attribute msg
 keyPress tagger =
   on "keydown" (Decode.map tagger keyCode)
 
-hijackOn : String -> Decode.Decoder msg -> Attribute msg
+hijackOn: String -> Decode.Decoder msg -> Attribute msg
 hijackOn event decoder =
   preventDefaultOn event (Decode.map hijack decoder)
 
 
-hijack : msg -> (msg, Bool)
+hijack: msg -> (msg, Bool)
 hijack msg =
   (msg, True)
 
-put : File -> String -> Cmd Msg
-put file token = 
+put: Model -> File -> String -> Cmd Msg
+put model file token = 
   Http.request
     { method = "PUT"
-    , headers = [ Http.header "name" (File.name file), Http.header "auth" token ]
+    , headers = [ 
+      Http.header "name" (File.name file)
+      , Http.header "auth" token 
+      , Http.header "description" model.description
+      , Http.header "tags" (Debug.toString model.tags)
+      , Http.header "title" model.title
+      ]
     , url = Server.url ++ "/upload/image"
     , body = Http.fileBody file
     , expect = Http.expectWhatever Response

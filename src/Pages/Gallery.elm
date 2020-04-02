@@ -9,6 +9,7 @@ import Http
 import Json.Decode exposing (Decoder, field, string)
 import Loading as Loader
 import User
+import Image
 
 --https://package.elm-lang.org/packages/FabienHenon/elm-infinite-scroll/latest/InfiniteScroll
 --https://w3bits.com/labs/css-image-hover-zoom/ -make the gallery looks like this :)

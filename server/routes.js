@@ -6,6 +6,7 @@ const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert')
 const gpc = require('generate-pincode')
 const crypto = require('crypto')
+var Busboy = require('busboy');
 
 const url = 'mongodb://localhost:27017';
 
@@ -60,6 +61,13 @@ function createAccount(obj){
     obj.age = null
     obj.twoFactor = false
     obj.token = crypto.randomBytes(48).toString('hex')
+    return obj
+}
+
+function createImage(obj){
+    obj.upvotes = 0
+    obj.downvotes = 0
+    obj.views = 0
     return obj
 }
 
@@ -203,24 +211,14 @@ async function routes(fastify) {
         });
     })
 
+    fastify.get('/account/user', async(req, res) => {
+        //return only public user info! input is username, returns
+        let username = req.headers.name
+        res.code(200).send()
+    })
+
     fastify.patch('/account/update', async(req, res) => {
         let auth = req.headers.auth
-        /*
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find().toArray(async function(err, docs){
-                if(docs.length === 0){
-                    console.log(docs)
-                    res.code(400).send()
-                }
-                else{
-                    var cursor = await db.collection('accounts').updateOne({token: auth}, {$set: req.body})
-                    res.code(200).send()
-                }
-            })
-            client.close()
-        })    */
         res.code(200).send()
     });
 
@@ -228,8 +226,12 @@ async function routes(fastify) {
     fastify.put('/upload/image', async(req, res) => {
         let dir = "./server/data/img"
         let auth = req.headers.auth
+        let title = req.headers.title
+        let tags = req.headers.tags
+        let description = req.headers.description
         console.log("Uploading a file to the server")
-        filename = crypto.randomBytes(20).toString('hex') + path.extname(req.headers.name);
+        let ID = crypto.randomBytes(20).toString('hex')
+        filename = ID + path.extname(req.headers.name);
         /*
         let user = await getUserByToken(auth)
 
@@ -237,7 +239,8 @@ async function routes(fastify) {
             res.code(400).send(new Error("Unauthorized uploader"))
             return
         }*/
-        INSERT("images", {file: filename})
+        let obj = {id: ID, file: filename, title:title, description:description, author:auth, tags:tags.substring(1, tags.length-1).replace(/"/g,'').split(",")}
+        INSERT("images", createImage(obj))
         pipeline(
           req.body,
           fs.createWriteStream(`${dir}/${filename}`),
@@ -256,6 +259,17 @@ async function routes(fastify) {
         )
     })
 
+    fastify.post('/accounts/query', async(req, res) => {
+        let query = req.body.query
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).toArray()
+            let output = cursor.map(({password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
+            res.send(output)
+            client.close()
+        });
+    })
     
     fastify.put('/upload/profile', async(req, res) => {
         user = req.headers["user"];

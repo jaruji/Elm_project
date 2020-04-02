@@ -16,6 +16,7 @@ import Pages.SignIn as SignIn
 import Pages.Upload as Upload
 import Pages.Home as Home
 import Pages.Profile as Profile
+import Pages.Users as Users
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
@@ -64,6 +65,7 @@ type Page
   | Upload Upload.Model
   | Home Home.Model
   | Profile Profile.Model
+  | Users Users.Model
 
 
 type State
@@ -79,10 +81,11 @@ type State
 --fix footer + maybe add simple contact page - yeah, no
 -- DONE finish login through local storage
 -- finish all profile options
--- create upload image formular
+-- DONE? create upload image formular
 -- fix loading of all images from the server
 -- create users page, enable searching of users and add profile view for users
 -- enable image search + search history stored in localstorage
+-- teraz sa mi dojebal carousel :) najc
 
 init : Maybe String -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flag url key =
@@ -114,6 +117,7 @@ type Msg
   | HomeMsg Home.Msg
   | UploadMsg Upload.Msg
   | ProfileMsg Profile.Msg
+  | UsersMsg Users.Msg
   | UpdateSearch Search.Msg
   | LogOut
   | Response (Result Http.Error User.Model)
@@ -175,6 +179,11 @@ update msg model =
         Profile profile -> stepProfile model (Profile.update mesg profile)
         _ -> (model, Cmd.none)
 
+    UsersMsg mesg ->
+      case model.page of
+        Users users -> stepUsers model (Users.update mesg users)
+        _ -> (model, Cmd.none)
+
     Response response ->
       case response of
         Ok user ->
@@ -182,6 +191,10 @@ update msg model =
           --page refresh without calling init!
         Err log ->
           ({ model | state = Failure}, Cmd.none)
+
+stepUsers: Model -> (Users.Model, Cmd Users.Msg) -> (Model, Cmd Msg)
+stepUsers model (users, cmd) =
+  ({ model | page = Users users }, Cmd.map UsersMsg cmd) 
   
 stepProfile: Model -> (Profile.Model, Cmd Profile.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
 stepProfile model (profile, cmd, session) =
@@ -306,6 +319,16 @@ view model =
             , viewFooter
           ]
         }
+      Users users -> 
+        { title = "Users"
+          , body = [
+            viewHeader model
+            , div[class "body"][
+              Users.view users |> Html.map UsersMsg
+            ]
+            , viewFooter
+          ]
+        }
 
 viewImage : String -> Int -> Int -> Html msg
 viewImage path w h =
@@ -352,7 +375,7 @@ viewNav model =
         , ul [ class "nav navbar-nav" ][
             li [] [ a [ href "/" ] [ text "Home"] ]
             , li [] [ a [ href "/gallery" ] [ text "Gallery" ] ]
-            , li [] [ a [ href "/upload" ] [ text "Upload Image"] ]
+            , li [] [ a [ href "/upload" ] [ text "Upload"] ]
             , li [] [ a [ href "/users" ] [ text "Users"] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
         ]
@@ -433,11 +456,16 @@ routeUrl url model =
           , route (s "profile")
             ( 
               case getUser model.state of
+              --handler here
                 Just user ->
                   stepProfile model (Profile.init model.key user)
                 _ ->
                   ({model | page = NotFound "You must be logged in to check your profile"}, Cmd.none)
             )
+          , route (s "users")
+          (
+            stepUsers model (Users.init model.key)
+          )
         ]
   in 
     case model.state of
