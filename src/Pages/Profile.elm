@@ -15,6 +15,7 @@ import Json.Encode as Encode exposing (..)
 import LineChart
 import FeatherIcons as Icons
 import Social
+import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 
 type alias Model =
   {  
@@ -23,6 +24,8 @@ type alias Model =
     , tab: Tab
     , code: String
     , bio: String
+    , fragment: String
+    , status: Status
   }
 
 type alias Point =
@@ -30,6 +33,11 @@ type alias Point =
     x : Float
     , y : Float 
   }
+
+type Status
+  = Loading
+  | Success
+  | Failure
 
 type Msg
 -- Switch msg are used for switching tabs
@@ -50,6 +58,7 @@ type Msg
   | MailResponse (Result Http.Error())
   | AvatarResponse (Result Http.Error String)
   | VerifyResponse (Result Http.Error Bool)
+  | Response (Result Http.Error User.Model)
   | Select
   | GotFile File
 
@@ -59,9 +68,12 @@ type Tab
   | Security
   | History
 
-init: Nav.Key -> User.Model -> ( Model, Cmd Msg, Session.UpdateSession)
-init key user = 
-  (Model user key Information "" "", Cmd.none, Session.NoUpdate)
+init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg, Session.UpdateSession)
+init key user fragment = 
+    if fragment == user.username then
+        (Model user key Information "" "" fragment Success, Cmd.none, Session.NoUpdate)
+    else 
+        (Model user key Information "" "" fragment Loading, loadUser fragment, Session.NoUpdate)
 
 update: Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
 update msg model =
@@ -106,6 +118,13 @@ update msg model =
     MailResponse _ ->
         (model, Cmd.none, Session.NoUpdate)
 
+    Response response ->
+        case response of
+            Ok user ->
+                ({ model | user = user, status = Success }, Cmd.none, Session.NoUpdate)
+            Err log ->
+                ({ model | status = Failure }, Cmd.none, Session.NoUpdate)
+
     Code string ->
         ({model | code = string}, Cmd.none, Session.NoUpdate)
 
@@ -130,202 +149,228 @@ view model =
     user = model.user
   in 
     div[][
-        div[ class "jumbotron" ][
-            img [ class "avatar", style "border" "10px solid white", src user.avatar, style "border-radius" "50%", height 200, width 200, onClick Select ] []
-            , br [] []
-            , h3 [] [ text user.username
-                    , if user.verif == True then 
-                        span [ class "glyphicon glyphicon-ok-circle", style "color" "green", style "margin-left" "5px" ][]
-                    else
-                        span [ class "glyphicon glyphicon-remove-circle", style "color" "red", style "margin-left" "5px" ] []
-            ]
-            , div [ style "margin-bottom" "20px" ] [
-                ul [ class "nav" ] [
-                    case user.facebook of
-                        Just url ->
-                            Social.viewFacebook url
-                        Nothing ->
-                            div [][]
-                    , case user.twitter of
-                        Just url ->
-                            Social.viewTwitter url
-                        Nothing ->
-                            div[][]
-                    , case user.github of
-                        Just url ->
-                            Social.viewGithub url
-                        Nothing ->
-                            div [][]
+        case model.status of
+            Loading ->
+                div [ style "height" "400px", style "margin-top" "25%", style "text-align" "center" ] [
+                    h2 [] [ text "Fetching data from the server" ]
+                    , Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
                 ]
-            ]
-            , div [ style "font-style" "italic" ] [ text user.bio ]
-            , ul [ class "nav nav-pills" ][
-                li [][ a [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", href "#information", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
-                , li [][ a [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", href "#settings", onClick SwitchSettings ] [ text "Settings"] ]
-                , li [][ a [ if model.tab == Security then style "text-decoration" "underline" else style "" "", style "color" "black", href "#security", onClick SwitchSecurity ] [ text "Security"] ]
-                , li [][ a [ if model.tab == History then style "text-decoration" "underline" else style "" "", style "color" "black", href "#history", onClick SwitchHistory ] [ text "History"] ]
-            ]
-        ]
-        , case model.tab of
-            Information ->
-                div[ class "list-group" ][
-                    h3 [] [ text "Basic information" ]
-                    , div [ class "help-block" ] [ text ("Here are some basic information about " ++ user.username) ]
-                    , viewStringInfo user.firstName "First Name"
-                    , viewStringInfo user.surname "Last Name"
-                    , viewStringInfo user.occupation "Occupation"
-                    , hr [] []
-                    , h3 [] [ text "Account information" ]
-                    , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
-                    , viewStringInfo user.firstName "Registered at"
+            Failure ->
+                div [ style "height" "400px", style "margin-top" "25%", style "text-align" "center" ] [
+                    h2 [] [ text "Profile failed to load" ]
                 ]
-            Settings ->
-                div [][ 
-                    h3 [] [ text "Want to change your avatar?" ]
-                    , div [ class "help-block" ] [ text "Upload a picture from your computer and make it your avatar! You can also click on your avatar!" ]
-                    , button [ class "btn btn-primary", style "margin-bottom" "10px", onClick Select ] [ text "Select file" ]
-                    , hr [] []
-                    , h3 [] [ text "Update your bio" ]
-                    , div [ class "help-block" ] [ text "Update the description others see on your profile"]
-                    , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div[][
-                            textarea [ cols 100, rows 10, id "bio", placeholder user.bio, Html.Attributes.value model.bio, onInput Bio ] []
-                        ]
-                    ] 
-                    , hr [] []
-                    , h3 [] [ text "Tell us more about yourself" ]  
-                    , div [ class "help-block" ] [ text "Fill out the following information to complete your profile" ]  
-                    , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "name" ] [ text "First Name:" ]
-                                , input [ id "name", type_ "text", class "form-control" ] []
-                            ]
-                        ]
-                    ]
-                    , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "lastname" ] [ text "Last Name:" ]
-                                , input [ id "lastname", type_ "text", class "form-control" ] []
-                            ]
-                        ]
-                    ]
-                    ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "occ" ] [ text "Occupation:" ]
-                                , input [ id "occ", type_ "text", class "form-control" ] []
-                            ]
-                        ]
-                    ]
-                    ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "mail" ] [ text "E-mail:" ]
-                                , input [ id "mail", disabled True, type_ "email", class "form-control", Html.Attributes.value user.email ] []
-                            ]
-                        ]
-                    ]
-                    , hr [] []
-                    , h3 [] [ text "Link your social accounts" ]
-                    , div [ class "help-block" ] [ text "Share your social accounts with our users!" ]
-                    , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "fb" ] [ text "Link your Facebook:" ]
-                                , input [ id "fb", type_ "text", class "form-control" ] []
-                            ]
-                        ]
-                    ]
-                    ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "tw" ] [ text "Link your Twitter:" ]
-                                , input [ id "tw", type_ "text", class "form-control" ] []
-                            ]
-                        ]
-                    ]
-                    , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                        div [ class "col-md-offset-2 col-md-8" ] [
-                            div[ class "form-group has-feedback" ][
-                                label [ for "git" ] [ text "Link your Github:" ]
-                                , input [ id "git", type_ "text", class "form-control" ] []
-                            ]
-                        ]
-                    ]
-                    , hr [] []
-                    , h3 [] [ text "Update" ]
-                    , div [ class "help-block" ] [ text "Save all changes to your basic information" ]
-                    , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Update Settings" ]
-                    , hr [] []
-                    , h3 [] [ text "Delete my account" ]
-                    , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account"]
-                    , button [ class "btn btn-danger", style "margin-bottom" "50px" ] [ text "Delete account" ]
-                ]
-            Security ->
+            Success ->
                 div[][
-                    h3 [] [ text "Verify your account" ]
-                    , div [ class "help-block" ] [ text "Verification is required for the completion of certain tasks"]
-                    , case user.verif of
-                        False ->
-                            div[][
-                                viewVerify model
+                    div[ class "jumbotron" ][
+                        img [ class "avatar"
+                        , style "border" "10px solid white"
+                        , src user.avatar
+                        , style "border-radius" "50%"
+                        , height 200
+                        , width 200
+                        , if user.token /= "Hidden" then
+                            onClick Select 
+                        else
+                            style "" ""
+                        ] []
+                        , br [] []
+                        , h3 [] [ text user.username
+                                , if user.verif == True then 
+                                    span [ class "glyphicon glyphicon-ok-circle", style "color" "green", style "margin-left" "5px" ][]
+                                else
+                                    span [ class "glyphicon glyphicon-remove-circle", style "color" "red", style "margin-left" "5px" ] []
+                        ]
+                        , div [ style "margin-bottom" "20px" ] [
+                            ul [ class "nav" ] [
+                                case user.facebook of
+                                    Just url ->
+                                        Social.viewFacebook url
+                                    Nothing ->
+                                        div [][]
+                                , case user.twitter of
+                                    Just url ->
+                                        Social.viewTwitter url
+                                    Nothing ->
+                                        div[][]
+                                , case user.github of
+                                    Just url ->
+                                        Social.viewGithub url
+                                    Nothing ->
+                                        div [][]
+                            ]
+                        ]
+                        , div [ style "font-style" "italic" ] [ text user.bio ]
+                        , if user.token /= "Hidden" then
+                            ul [ class "nav nav-pills" ][
+                                li [][ a [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", href "#information", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
+                                , li [][ a [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", href "#settings", onClick SwitchSettings ] [ text "Settings"] ]
+                                , li [][ a [ if model.tab == Security then style "text-decoration" "underline" else style "" "", style "color" "black", href "#security", onClick SwitchSecurity ] [ text "Security"] ]
+                                , li [][ a [ if model.tab == History then style "text-decoration" "underline" else style "" "", style "color" "black", href "#history", onClick SwitchHistory ] [ text "History"] ]
+                            ]
+                        else
+                            text ""
+                    ]
+                    , case model.tab of
+                        Information ->
+                            div[ class "list-group" ][
+                                h3 [] [ text "Basic information" ]
+                                , div [ class "help-block" ] [ text ("Here are some basic information about " ++ user.username) ]
+                                , viewStringInfo user.firstName "First Name"
+                                , viewStringInfo user.surname "Last Name"
+                                , viewStringInfo user.occupation "Occupation"
                                 , hr [] []
+                                , h3 [] [ text "Account information" ]
+                                , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
+                                , viewStringInfo user.firstName "Registered at"
                             ]
-                        _ -> 
-                            div[ class "alert alert-success", style "width" "20%", style "margin" "auto" ][ text "Your account is verified" ]
-                    , hr [] []
-                    , h3 [] [ text "Enable two-factor authentication?" ]
-                    , div [ class "help-block" ] [ text "Make your account more secure by enabling two-factor verification" ]
-                    , case user.verif of
-                        True ->
-                            button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px" ] [ text "Enable" ]                    
-                        False ->
-                            div [] [
-                                button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px", disabled True ] [ text "Enable" ]
-                                , div [ class "alert alert-warning", style "width" "20%", style "margin" "auto" ] [ text "You must verify your e-mail address first!" ]
-                            ]
-                    , hr [] []
-                    , h3 [] [ text "Want to change your password?" ]
-                    , div [ class "help-block" ] [ text "Change your password by filling out the following form" ]
-                    , div [ class "form-inline" ][
-                        div [ class "form-group row", style "padding-bottom" "15px" ] [ 
-                            div [ class "col-md-offset-2 col-md-8" ] [
-                                div[ class "form-group has-feedback" ][
-                                    label [ for "old" ] [ text "Old Password:" ]
-                                    , input [ id "old", type_ "password", class "form-control" ] []
+                        Settings ->
+                            div [][ 
+                                h3 [] [ text "Want to change your avatar?" ]
+                                , div [ class "help-block" ] [ text "Upload a picture from your computer and make it your avatar! You can also click on your avatar!" ]
+                                , button [ class "btn btn-primary", style "margin-bottom" "10px", onClick Select ] [ text "Select file" ]
+                                , hr [] []
+                                , h3 [] [ text "Update your bio" ]
+                                , div [ class "help-block" ] [ text "Update the description others see on your profile"]
+                                , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div[][
+                                        textarea [ cols 100, rows 10, id "bio", placeholder user.bio, Html.Attributes.value model.bio, onInput Bio ] []
+                                    ]
+                                ] 
+                                , hr [] []
+                                , h3 [] [ text "Tell us more about yourself" ]  
+                                , div [ class "help-block" ] [ text "Fill out the following information to complete your profile" ]  
+                                , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "name" ] [ text "First Name:" ]
+                                            , input [ id "name", type_ "text", class "form-control" ] []
+                                        ]
+                                    ]
                                 ]
-                            ]
-                        ]
-                        , div [ class "form-group row", style "padding-bottom" "15px" ] [ 
-                            div [ class "col-md-offset-2 col-md-8" ] [
-                                div[ class "form-group has-feedback" ][
-                                    label [ for "new" ] [ text "New Password:" ]
-                                    , input [ id "new", type_ "password", class "form-control" ] []
+                                , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "lastname" ] [ text "Last Name:" ]
+                                            , input [ id "lastname", type_ "text", class "form-control" ] []
+                                        ]
+                                    ]
                                 ]
-                            ]
-                        ]
-                        , div [ class "form-group row", style "padding-bottom" "15px" ] [ 
-                            div [ class "col-md-offset-2 col-md-8" ] [
-                                div[ class "form-group has-feedback" ][
-                                    label [ for "newA" ] [ text "New Password Again:" ]
-                                    , input [ id "newA", type_ "password", class "form-control" ] []
+                                ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "occ" ] [ text "Occupation:" ]
+                                            , input [ id "occ", type_ "text", class "form-control" ] []
+                                        ]
+                                    ]
                                 ]
+                                ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "mail" ] [ text "E-mail:" ]
+                                            , input [ id "mail", disabled True, type_ "email", class "form-control", Html.Attributes.value user.email ] []
+                                        ]
+                                    ]
+                                ]
+                                , hr [] []
+                                , h3 [] [ text "Link your social accounts" ]
+                                , div [ class "help-block" ] [ text "Share your social accounts with our users!" ]
+                                , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "fb" ] [ text "Link your Facebook:" ]
+                                            , input [ id "fb", type_ "text", class "form-control" ] []
+                                        ]
+                                    ]
+                                ]
+                                ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "tw" ] [ text "Link your Twitter:" ]
+                                            , input [ id "tw", type_ "text", class "form-control" ] []
+                                        ]
+                                    ]
+                                ]
+                                , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+                                    div [ class "col-md-offset-2 col-md-8" ] [
+                                        div[ class "form-group has-feedback" ][
+                                            label [ for "git" ] [ text "Link your Github:" ]
+                                            , input [ id "git", type_ "text", class "form-control" ] []
+                                        ]
+                                    ]
+                                ]
+                                , hr [] []
+                                , h3 [] [ text "Update" ]
+                                , div [ class "help-block" ] [ text "Save all changes to your basic information" ]
+                                , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Update Settings" ]
+                                , hr [] []
+                                , h3 [] [ text "Delete my account" ]
+                                , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account"]
+                                , button [ class "btn btn-danger", style "margin-bottom" "50px" ] [ text "Delete account" ]
                             ]
-                        ]
-                    ] 
-                    , button [ class "btn btn-primary", style "margin-bottom" "100px", style "margin-top" "20px" ] [ text "Change Password" ]
-                ]
-            History ->
-                div[ class "container", style "text-align" "center" ][ 
-                    h3 [] [ text "Activity in the last month" ] 
-                    , div [ class "help-block" ] [ text "This graph represents your image upload activity in the last month" ]
-                    , div [ style "margin-left" "20%"] [ LineChart.view1 .x .y
-                        [ Point 1 2, Point 5 5, Point 10 10 ] ]
-                    , hr [] []
-                    , h3 [] [ text "My posts" ] 
-                    , div [ class "help-block" ] [ text "This sections contains your entire post history" ]
+                        Security ->
+                            div[][
+                                h3 [] [ text "Verify your account" ]
+                                , div [ class "help-block" ] [ text "Verification is required for the completion of certain tasks"]
+                                , case user.verif of
+                                    False ->
+                                        div[][
+                                            viewVerify model
+                                            , hr [] []
+                                        ]
+                                    _ -> 
+                                        div[ class "alert alert-success", style "width" "20%", style "margin" "auto" ][ text "Your account is verified" ]
+                                , hr [] []
+                                , h3 [] [ text "Enable two-factor authentication?" ]
+                                , div [ class "help-block" ] [ text "Make your account more secure by enabling two-factor verification" ]
+                                , case user.verif of
+                                    True ->
+                                        button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px" ] [ text "Enable" ]                    
+                                    False ->
+                                        div [] [
+                                            button [ class "btn btn-success", style "margin-bottom" "15px", style "margin-top" "20px", disabled True ] [ text "Enable" ]
+                                            , div [ class "alert alert-warning", style "width" "20%", style "margin" "auto" ] [ text "You must verify your e-mail address first!" ]
+                                        ]
+                                , hr [] []
+                                , h3 [] [ text "Want to change your password?" ]
+                                , div [ class "help-block" ] [ text "Change your password by filling out the following form" ]
+                                , div [ class "form-inline" ][
+                                    div [ class "form-group row", style "padding-bottom" "15px" ] [ 
+                                        div [ class "col-md-offset-2 col-md-8" ] [
+                                            div[ class "form-group has-feedback" ][
+                                                label [ for "old" ] [ text "Old Password:" ]
+                                                , input [ id "old", type_ "password", class "form-control" ] []
+                                            ]
+                                        ]
+                                    ]
+                                    , div [ class "form-group row", style "padding-bottom" "15px" ] [ 
+                                        div [ class "col-md-offset-2 col-md-8" ] [
+                                            div[ class "form-group has-feedback" ][
+                                                label [ for "new" ] [ text "New Password:" ]
+                                                , input [ id "new", type_ "password", class "form-control" ] []
+                                            ]
+                                        ]
+                                    ]
+                                    , div [ class "form-group row", style "padding-bottom" "15px" ] [ 
+                                        div [ class "col-md-offset-2 col-md-8" ] [
+                                            div[ class "form-group has-feedback" ][
+                                                label [ for "newA" ] [ text "New Password Again:" ]
+                                                , input [ id "newA", type_ "password", class "form-control" ] []
+                                            ]
+                                        ]
+                                    ]
+                                ] 
+                                , button [ class "btn btn-primary", style "margin-bottom" "100px", style "margin-top" "20px" ] [ text "Change Password" ]
+                            ]
+                        History ->
+                            div[ class "container", style "text-align" "center" ][ 
+                                h3 [] [ text "Activity in the last month" ] 
+                                , div [ class "help-block" ] [ text "This graph represents your image upload activity in the last month" ]
+                                , div [ style "margin-left" "20%"] [ LineChart.view1 .x .y
+                                    [ Point 1 2, Point 5 5, Point 10 10 ] ]
+                                , hr [] []
+                                , h3 [] [ text "My posts" ] 
+                                , div [ class "help-block" ] [ text "This sections contains your entire post history" ]
+                            ]
                 ]
     ]
 
@@ -408,6 +453,18 @@ put file user =
     , url = Server.url ++ "/upload/profile"
     , body = Http.fileBody file 
     , expect = Http.expectJson AvatarResponse ( field "response" Decode.string )
+    , timeout = Nothing
+    , tracker = Nothing
+    }
+
+loadUser : String -> Cmd Msg
+loadUser username = 
+  Http.request
+    { method = "POST"
+    , headers = []
+    , url = Server.url ++ "/account/user"
+    , body = Http.jsonBody <| (stringEncoder "username" username)
+    , expect = Http.expectJson Response User.decodeUserNotLoggedIn
     , timeout = Nothing
     , tracker = Nothing
     }

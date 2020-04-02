@@ -211,10 +211,30 @@ async function routes(fastify) {
         });
     })
 
-    fastify.get('/account/user', async(req, res) => {
+    fastify.post('/account/user', async(req, res) => {
         //return only public user info! input is username, returns
-        let username = req.headers.name
-        res.code(200).send()
+        let username = req.body.username
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
+        async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('accounts').find({username: username}).toArray(function(err, docs){
+                if(docs.length === 0){
+                    res.code(400).send()
+                }
+                else{
+                    //hide properties that are not necessary/security risk!
+                    delete docs[0]._id
+                    delete docs[0].password
+                    delete docs[0].verifCode
+                    delete docs[0].email
+                    delete docs[0].token
+                    delete docs[0].twoFactor
+                    res.send(docs[0])
+                }
+                client.close()
+            })
+        });
     })
 
     fastify.patch('/account/update', async(req, res) => {
@@ -300,13 +320,19 @@ async function routes(fastify) {
           }
         )
     })
-
-    
-    fastify.get('/img', async (req, res) => {  //image database
-        res.header("Access-Control-Allow-Origin", "*")
-        res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        res.send({file: "http://localhost:3000/img/pexels-photo-736230.jpeg"})
-        getAllByKey("images", "file")
+        
+    fastify.get('/images/get', async (req, res) => {  //image database
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('images').find().toArray()
+            //let output = cursor.map(({password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
+            let output = cursor.map(function(key){
+                key["file"] = "http://localhost:3000/img/" + key.file
+            })
+            res.send(cursor)
+            client.close()
+        });
     })
 
 }

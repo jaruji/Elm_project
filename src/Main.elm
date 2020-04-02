@@ -137,7 +137,7 @@ update msg model =
       routeUrl url model
 
     LogOut ->
-      ( { model | state = Ready Session.init }, Cmd.batch [ User.logout, Nav.pushUrl model.key ("/")] ) --?? bugged
+      ( { model | state = Ready Session.init }, Cmd.batch [ User.logout ] ) --?? bugged
     
     UpdateSearch mesg -> 
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
@@ -274,7 +274,9 @@ view model =
         { title = "Gallery"
         , body = [
           viewHeader model
-          , Gallery.view gallery |> Html.map GalleryMsg
+          , div [class "body"][
+            Gallery.view gallery |> Html.map GalleryMsg
+          ]
           , viewFooter        
           ]
         }
@@ -389,7 +391,7 @@ viewNav model =
             Just user ->
              ul [ class "nav navbar-nav navbar-right" ] [
               li [] [ img [ class "avatar", style "border-radius" "50%", style "margin-top" "5px", src user.avatar, height 40, width 40 ] [] ]
-              , li [] [ a [ href "/profile#information" ]  [ text user.username ] ]
+              , li [] [ a [ href ("/profile/" ++ user.username ++ "#information") ]  [ text user.username ] ]
               , li [] [ a [ onClick LogOut ] [ span [ class "glyphicon glyphicon-log-out", style "margin-right" "2px" ][], text "Log Out" ] ]
              ]
       ] 
@@ -453,14 +455,17 @@ routeUrl url model =
             ( 
               stepHome model (Home.init (getUser model.state) model.key)
             )
-          , route (s "profile")
+          , route (s "profile" </> getSlug)
             ( 
               case getUser model.state of
-              --handler here
-                Just user ->
-                  stepProfile model (Profile.init model.key user)
+                Just userAcc ->
+                  (\user ->
+                    stepProfile model (Profile.init model.key userAcc user)
+                  )
                 _ ->
-                  ({model | page = NotFound "You must be logged in to check your profile"}, Cmd.none)
+                  (\user ->
+                    ({model | page = NotFound "You must be logged in to do this"}, Cmd.none)
+                  )
             )
           , route (s "users")
           (
@@ -482,6 +487,11 @@ routeUrl url model =
 
               Nothing ->
                 ({model | page = NotFound "Oops, this page doesn't exist!"}, Cmd.none)
+
+getSlug : Parser (String -> a) a
+getSlug =
+  --s "user" </> Parser.string
+  custom "user" Just --??? dont get how this works tbh
 
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =

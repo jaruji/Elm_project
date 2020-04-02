@@ -6,7 +6,7 @@ import Html.Events exposing (..)
 import Time exposing (..)
 import Json.Decode as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
-import Json.Decode.Pipeline as Pipeline exposing (required, optional)
+import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import Server
 
 --Model
@@ -52,7 +52,7 @@ decodeUserNotLoggedIn: Decode.Decoder Model
 decodeUserNotLoggedIn = 
     Decode.succeed Model
         |> required "username" Decode.string 
-        |> optional "email" Decode.string "Hidden"
+        |> hardcoded "Hidden"
         |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
         |> optional "bio" Decode.string "No description"
         |> required "verif" Decode.bool
@@ -62,7 +62,7 @@ decodeUserNotLoggedIn =
         |> required "facebook" (nullable Decode.string)
         |> required "twitter" (nullable Decode.string)
         |> required "github" (nullable Decode.string)
-        |> optional "token" Decode.string "Hidden"
+        |> hardcoded "Hidden"
 
 
 port storeToken : Maybe String -> Cmd msg

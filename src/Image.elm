@@ -28,7 +28,7 @@ decodeImage =
         |> required "url" Decode.string
         |> required "id" Decode.string
         |> optional "description" Decode.string "No description"
-        |> required "author" Decode.string
+        |> optional "author" Decode.string "Anonymous"
         |> optional "tags" (Decode.list Decode.string) []
         |> required "upvotes" Decode.int
         |> required "downvotes" Decode.int

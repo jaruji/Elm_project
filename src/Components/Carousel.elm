@@ -51,7 +51,7 @@ update msg model =
 
 handle : Int -> Model -> Int
 handle current model =
-  if(current < 1) then
+  if(current < 0) then
     (Array.length model.source - 1)
   else if (current >= Array.length model.source) then
     0

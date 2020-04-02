@@ -194,7 +194,7 @@ view model =
           , div [ class "panel-footer", style "height" "100px" ][
             textarea [ 
             id "bio"
-            , placeholder "Enter image description here..."
+            , placeholder "Enter image description here (optional)"
             , style "height" "100%"
             , style "width" "100%"
             , style "resize" "none"
@@ -208,7 +208,7 @@ view model =
           , div [ class "panel-footer" ] [
             input [ id "tags"
             , type_ "text"
-            , placeholder "Press Enter to add tags"
+            , placeholder "Press Enter to add tags (optional)"
             , style "outline" "none"
             , style "border" "none"
             , style "background" "Transparent"
@@ -227,7 +227,7 @@ view model =
               div [ class "panel-footer", style "text-align" "left" ] ( List.map Tag.view (List.reverse model.tags) )
         ]
         , div [ class "help-block" ][
-          text ("Loaded file size: " ++ (String.fromInt model.fileSize) ++ " B")
+          text ("Loaded file size: " ++ getSizeInKb model.fileSize ++ " kB")
         ]
         , button [ class "btn btn-primary", onClick Upload, style "margin-bottom" "10px" ] [ text "Upload" ] 
         , case model.warning of
@@ -282,6 +282,10 @@ viewPreview mime url =
           --, style "height" "100%" 
           , style "margin" "auto" ] []
     ]
+
+getSizeInKb: Int -> String
+getSizeInKb b =
+  String.fromFloat( Basics.toFloat b / 1024.0 )
 
 cancelButton: Msg -> String -> Html Msg
 cancelButton msg offset =
