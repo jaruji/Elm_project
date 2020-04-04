@@ -166,8 +166,8 @@ view model =
                         , style "border" "10px solid white"
                         , src user.avatar
                         , style "border-radius" "50%"
-                        , height 200
-                        , width 200
+                        , height 300
+                        , width 300
                         , if user.token /= "Hidden" then
                             onClick Select 
                         else
@@ -301,11 +301,7 @@ view model =
                                 , hr [] []
                                 , h3 [] [ text "Update" ]
                                 , div [ class "help-block" ] [ text "Save all changes to your basic information" ]
-                                , button [ class "btn btn-primary", style "margin-bottom" "10px" ] [ text "Update Settings" ]
-                                , hr [] []
-                                , h3 [] [ text "Delete my account" ]
-                                , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account"]
-                                , button [ class "btn btn-danger", style "margin-bottom" "50px" ] [ text "Delete account" ]
+                                , button [ class "btn btn-primary", style "margin-bottom" "50px" ] [ text "Update Settings" ]
                             ]
                         Security ->
                             div[][
@@ -359,8 +355,12 @@ view model =
                                         ]
                                     ]
                                 ] 
-                                , button [ class "btn btn-primary", style "margin-bottom" "100px", style "margin-top" "20px" ] [ text "Change Password" ]
-                            ]
+                                , button [ class "btn btn-primary", style "margin-bottom" "10px", style "margin-top" "20px" ] [ text "Change Password" ]
+                                , hr [] []
+                                , h3 [] [ text "Delete my account" ]
+                                , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account"]
+                                , button [ class "btn btn-danger", style "margin-bottom" "50px" ] [ text "Delete account" ]
+                            ]   
                         History ->
                             div[ class "container", style "text-align" "center" ][ 
                                 h3 [] [ text "Activity in the last month" ] 
@@ -385,7 +385,14 @@ viewStringInfo attr name =
                     div [ class "col-md-offset-2 col-md-8" ] [
                         div[ class "form-group has-feedback" ][
                             label [ for name ] [ text key ]
-                            , input [ id name, type_ "text", style "text-align" "center", readonly True, class "form-control", placeholder value ] []
+                            , input [ id name
+                            , type_ "text"
+                            , style "text-align" "center"
+                            , readonly True, class "form-control"
+                            , placeholder value
+                            --, style "border" "none"
+                            , style "background" "Transparent"
+                            , style "outline" "none" ] []
                         ]
                     ]
                 ]

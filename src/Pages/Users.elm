@@ -87,7 +87,10 @@ view model =
         , hr [ style "margin-top" "-15px" ] []
         , case model.status of
             Loading ->
-                Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
+                div[][
+                    h4[][ text "Sending the query..." ]
+                    , Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
+                ]
             Success users ->
                 div[][
                     div [ class "alert alert-success"

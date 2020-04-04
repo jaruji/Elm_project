@@ -17,6 +17,7 @@ import Pages.Upload as Upload
 import Pages.Home as Home
 import Pages.Profile as Profile
 import Pages.Users as Users
+import Pages.Post as Post
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
@@ -66,6 +67,7 @@ type Page
   | Home Home.Model
   | Profile Profile.Model
   | Users Users.Model
+  | Post Post.Model
 
 
 type State
@@ -119,6 +121,7 @@ type Msg
   | ProfileMsg Profile.Msg
   | UsersMsg Users.Msg
   | UpdateSearch Search.Msg
+  | PostMsg Post.Msg
   | LogOut
   | Response (Result Http.Error User.Model)
 
@@ -184,6 +187,11 @@ update msg model =
         Users users -> stepUsers model (Users.update mesg users)
         _ -> (model, Cmd.none)
 
+    PostMsg mesg ->
+      case model.page of
+        Post post -> stepPost model (Post.update mesg post)
+        _ -> (model, Cmd.none)
+
     Response response ->
       case response of
         Ok user ->
@@ -191,6 +199,10 @@ update msg model =
           --page refresh without calling init!
         Err log ->
           ({ model | state = Failure}, Cmd.none)
+
+stepPost: Model -> (Post.Model, Cmd Post.Msg) -> (Model,Cmd Msg)
+stepPost model (post, cmd) =
+  ({ model | page = Post post }, Cmd.map PostMsg cmd)
 
 stepUsers: Model -> (Users.Model, Cmd Users.Msg) -> (Model, Cmd Msg)
 stepUsers model (users, cmd) =
@@ -327,6 +339,16 @@ view model =
             viewHeader model
             , div[class "body"][
               Users.view users |> Html.map UsersMsg
+            ]
+            , viewFooter
+          ]
+        }   
+      Post post -> 
+        { title = "Post"
+          , body = [
+            viewHeader model
+            , div[class "body"][
+              Post.view post |> Html.map PostMsg
             ]
             , viewFooter
           ]
@@ -471,6 +493,14 @@ routeUrl url model =
           (
             stepUsers model (Users.init model.key)
           )
+          , route (s "post" </> getSlug)
+          (
+            case model.state of
+              Ready session ->
+                (\id -> stepPost model (Post.init model.key session.user id))
+              _ ->
+                (\id -> (model, Cmd.none))
+          )
         ]
   in 
     case model.state of
@@ -491,7 +521,7 @@ routeUrl url model =
 getSlug : Parser (String -> a) a
 getSlug =
   --s "user" </> Parser.string
-  custom "user" Just --??? dont get how this works tbh
+  custom "slug" Just --??? dont get how this works tbh
 
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =

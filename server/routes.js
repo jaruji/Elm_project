@@ -60,6 +60,7 @@ function createAccount(obj){
     obj.registeredAt = new Date()
     obj.age = null
     obj.twoFactor = false
+    obj.secretKey = null
     obj.token = crypto.randomBytes(48).toString('hex')
     return obj
 }
@@ -68,6 +69,9 @@ function createImage(obj){
     obj.upvotes = 0
     obj.downvotes = 0
     obj.views = 0
+    //obj.comments = null
+    //obj.commentCount = 0 //so we can show comment count without sending all coments
+    obj.uploaded = new Date()
     return obj
 }
 
@@ -174,13 +178,15 @@ async function routes(fastify) {
             var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
                 if(docs.length === 0){
                     console.log(docs)
-                    res.code(400).send()
+                    res.code(400).send(new Error("Invalid creditentials"))
                 }
                 else{
                     //hide properties that are not necessary/security risk!
                     delete docs[0]._id
                     delete docs[0].password
                     delete docs[0].verifCode
+                    delete docs[0].secretKey
+                    delete docs[0].twoFactor
                     //console.log(docs)
                     res.send(docs[0])
                 }
@@ -197,13 +203,15 @@ async function routes(fastify) {
             var db = client.db("database");
             var cursor = await db.collection('accounts').find({token: auth}).toArray(function(err, docs){
                 if(docs.length === 0){
-                    res.code(400).send()
+                    res.code(400).send(new Error("Invalid token"))
                 }
                 else{
                     //hide properties that are not necessary/security risk!
                     delete docs[0]._id
                     delete docs[0].password
                     delete docs[0].verifCode
+                    delete docs[0].secretKey
+                    delete docs[0].twoFactor
                     res.send(docs[0])
                 }
                 client.close()
@@ -220,7 +228,7 @@ async function routes(fastify) {
             var db = client.db("database");
             var cursor = await db.collection('accounts').find({username: username}).toArray(function(err, docs){
                 if(docs.length === 0){
-                    res.code(400).send()
+                    res.code(400).send(new Error("This profile does not exist"))
                 }
                 else{
                     //hide properties that are not necessary/security risk!
@@ -250,7 +258,7 @@ async function routes(fastify) {
         let tags = req.headers.tags
         let description = req.headers.description
         console.log("Uploading a file to the server")
-        let ID = crypto.randomBytes(20).toString('hex')
+        let ID = crypto.randomBytes(10).toString('hex')
         filename = ID + path.extname(req.headers.name);
         /*
         let user = await getUserByToken(auth)
@@ -268,7 +276,7 @@ async function routes(fastify) {
             if(err){
               console.log("Error during writing file");
               fs.unlinkSync(`${dir}/${filename}`);      //delete file if error occured
-              res.code(400).send()
+              res.code(400).send(new Error("Error during writing file"))
               return;
             }
             else{
@@ -279,18 +287,6 @@ async function routes(fastify) {
         )
     })
 
-    fastify.post('/accounts/query', async(req, res) => {
-        let query = req.body.query
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).toArray()
-            let output = cursor.map(({password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
-            res.send(output)
-            client.close()
-        });
-    })
-    
     fastify.put('/upload/profile', async(req, res) => {
         user = req.headers["user"];
         filename = user + path.extname(req.headers["name"]);    //get name of received file
@@ -303,7 +299,7 @@ async function routes(fastify) {
             if(err){
               console.log("Error during writing file, deleting...");
               fs.unlinkSync(`${dir}/${filename}`);      //delete file if error occured
-              res.code(400).send()
+              res.code(400).send(new Error("Error during writing file"))
               return;
             }
             else{
@@ -320,19 +316,60 @@ async function routes(fastify) {
           }
         )
     })
-        
-    fastify.get('/images/get', async (req, res) => {  //image database
+
+    fastify.post('/accounts/query', async(req, res) => {
+        let query = req.body.query
         MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
             assert.equal(null, err);
             var db = client.db("database");
-            var cursor = await db.collection('images').find().toArray()
-            //let output = cursor.map(({password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
-            let output = cursor.map(function(key){
+            var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
+            let output = cursor.map(({_id, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
+            res.send(output)
+            client.close()
+        });
+    })
+    
+    fastify.post('/images/get', async (req, res) => {  //image database
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('images').find().sort(req.body).toArray()
+            let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
+            output.map(function(key){
                 key["file"] = "http://localhost:3000/img/" + key.file
             })
+            res.send(output)
+            client.close()
+        });
+    })
+
+    fastify.post('/images/id', async (req, res) => {  //image database
+        let id = req.body.id
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var view = await db.collection('images').updateOne({id: id}, {$inc:{views: 1}})
+            var cursor = await db.collection('images').findOne({id: id})
+            delete cursor._id
+            cursor.file = "http://localhost:3000/img/" + cursor.file
             res.send(cursor)
             client.close()
         });
+    })
+
+    fastify.post('/images/comment', async (req, res) => {  //image database
+        let content = req.body.content
+        let username = req.body.username
+        let avatar = req.body.url
+        let id = req.body.id
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
+        async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('images').updateOne({id: id}, {$push: {comments: {username: username, url: avatar, content:content, date: new Date()}}})
+            res.code(200).send()
+            client.close()
+        })
     })
 
 }
