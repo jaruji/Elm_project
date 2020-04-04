@@ -55,7 +55,7 @@ update msg model =
         CommentResponse response ->
             case response of
                 Ok _ ->
-                    (model, Cmd.none)
+                    (model, Nav.reload)
                 Err _ ->
                     (model, Cmd.none)
 

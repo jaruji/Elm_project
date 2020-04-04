@@ -6,50 +6,16 @@ const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert')
 const gpc = require('generate-pincode')
 const crypto = require('crypto')
-var Busboy = require('busboy');
 
 const url = 'mongodb://localhost:27017';
-
-//TODO: remove db overhead, stay connected to database at all times? :) 
-
-function INSERT(dbName, obj){
-    MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-    async function(err, client) {
-        assert.equal(null, err);
-        var db = client.db("database");
-        var cursor = await db.collection(dbName).insertOne(obj);
-        client.close();
-    });
-}
-
-function getAllByKey(dbName, key){
-    MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-        assert.equal(null, err);
-        var db = client.db("database");
-        var cursor = await db.collection(dbName).distinct(key)
-        console.log(cursor)
-        client.close()
-    });
-}
-
-async function getUserByToken(token){
-    var ret
-    MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-        assert.equal(null, err);
-        var db = client.db("database");
-        var cursor = await db.collection("accounts").find({token: token}).toArray(async function(err, docs){
-            ret = docs[0].username
-            client.close()
-            return ret;
-        })
-    })
-}
+const client = new MongoClient(url, {useNewUrlParser:true, useUnifiedTopology:true})
+const connection = client.connect()
 
 function createAccount(obj){
     obj.verif = false
     obj.verifCode = gpc(6)
-    obj.profilePic = null//"http://localhost:3000/img/profile/default.jpg"
-    obj.history = []
+    obj.profilePic = null
+    obj.history = null
     obj.bio = null
     obj.firstName = null
     obj.surname = null
@@ -69,8 +35,6 @@ function createImage(obj){
     obj.upvotes = 0
     obj.downvotes = 0
     obj.views = 0
-    //obj.comments = null
-    //obj.commentCount = 0 //so we can show comment count without sending all coments
     obj.uploaded = new Date()
     return obj
 }
@@ -80,7 +44,7 @@ function sendActivationMail(receiver, code){
         service: 'gmail',
         auth: {
             user: 'elmwebsitemailer@gmail.com',
-            pass: 'supersecret'
+            pass: 'supersecret' //need to somehow hide these
         }
     });
 
@@ -105,10 +69,8 @@ async function routes(fastify) {
     fastify.post('/account/sign_up', async (req, res) => {    //registering new account
         res.header("Access-Control-Allow-Origin", "*")  //allows sharing the resource
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        let obj = createAccount(req.body)
-        console.log(obj)
-        INSERT("accounts", obj)
-        console.log("A new account has been registered")
+        const db = client.db('database')
+        let insert = db.collection('accounts').insertOne(createAccount(req.body))
         res.send({ response : "OK" })
     })
 
@@ -116,32 +78,22 @@ async function routes(fastify) {
     fastify.post('/account/validate', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
-                if(docs.length === 0)
-                    res.send({response: "Error"})
-                else
-                    res.send({response: "OK"})
-                client.close()
-            })
-        });
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
+            if(docs.length === 0)
+                res.send({response: "Error"})
+            else
+                res.send({response: "OK"})
+        })
     })
 
     fastify.post('/mailer/send', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         let code = gpc(6)
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').updateOne(req.body, {$set: {verifCode: code}})
-            client.close()
-        });
-        console.log("Sending mail to " + req.body.email)
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').updateOne(req.body, {$set: {verifCode: code}})
+        client.close()
         sendActivationMail(req.body.email, code)
         res.send({response: true})
     })
@@ -149,105 +101,85 @@ async function routes(fastify) {
     fastify.post('/account/verify', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find(req.body).toArray(async function(err, docs){
-                if(docs.length === 0){
-                    console.log(docs)
-                    res.send({response: false})
-                }
-                else{
-                    var temp = await db.collection('accounts').updateOne(req.body, {$set: {verif: true, verifCode: null}})
-                    res.send({response: true})
-                }
-                client.close()
-            })
-        });
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find(req.body).toArray(async function(err, docs){
+            if(docs.length === 0){
+                console.log(docs)
+                res.send({response: false})
+            }
+            else{
+                var temp = await db.collection('accounts').updateOne(req.body, {$set: {verif: true, verifCode: null}})
+                res.send({response: true})
+            }
+        }) 
     })
 
 
     fastify.post('/account/sign_in', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
-                if(docs.length === 0){
-                    console.log(docs)
-                    res.code(400).send(new Error("Invalid creditentials"))
-                }
-                else{
-                    //hide properties that are not necessary/security risk!
-                    delete docs[0]._id
-                    delete docs[0].password
-                    delete docs[0].verifCode
-                    delete docs[0].secretKey
-                    delete docs[0].twoFactor
-                    //console.log(docs)
-                    res.send(docs[0])
-                }
-                client.close()
-            })
-        });
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
+            if(docs.length === 0){
+                res.code(400).send(new Error("Invalid creditentials"))
+            }
+            else{
+                //hide properties that are not necessary/security risk!
+                delete docs[0]._id
+                delete docs[0].password
+                delete docs[0].verifCode
+                delete docs[0].secretKey
+                delete docs[0].twoFactor
+                res.send(docs[0])
+            }
+        })
     })
 
     fastify.get('/account/auth', async(req, res) => {
         let auth = req.headers.auth
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find({token: auth}).toArray(function(err, docs){
-                if(docs.length === 0){
-                    res.code(400).send(new Error("Invalid token"))
-                }
-                else{
-                    //hide properties that are not necessary/security risk!
-                    delete docs[0]._id
-                    delete docs[0].password
-                    delete docs[0].verifCode
-                    delete docs[0].secretKey
-                    delete docs[0].twoFactor
-                    res.send(docs[0])
-                }
-                client.close()
-            })
-        });
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find({token: auth}).toArray(function(err, docs){
+            if(docs.length === 0){
+                res.code(400).send(new Error("Invalid token"))
+            }
+            else{
+                //hide properties that are not necessary/security risk!
+                delete docs[0]._id
+                delete docs[0].password
+                delete docs[0].verifCode
+                delete docs[0].secretKey
+                delete docs[0].twoFactor
+                res.send(docs[0])
+            }
+        })
     })
 
     fastify.post('/account/user', async(req, res) => {
         //return only public user info! input is username, returns
         let username = req.body.username
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find({username: username}).toArray(function(err, docs){
-                if(docs.length === 0){
-                    res.code(400).send(new Error("This profile does not exist"))
-                }
-                else{
-                    //hide properties that are not necessary/security risk!
-                    delete docs[0]._id
-                    delete docs[0].password
-                    delete docs[0].verifCode
-                    delete docs[0].email
-                    delete docs[0].token
-                    delete docs[0].twoFactor
-                    res.send(docs[0])
-                }
-                client.close()
-            })
-        });
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find({username: username}).toArray(function(err, docs){
+            if(docs.length === 0){
+                res.code(400).send(new Error("This profile does not exist"))
+            }
+            else{
+                //hide properties that are not necessary/security risk!
+                delete docs[0]._id
+                delete docs[0].password
+                delete docs[0].verifCode
+                delete docs[0].email
+                delete docs[0].token
+                delete docs[0].twoFactor
+                res.send(docs[0])
+            }
+        })
     })
 
     fastify.patch('/account/update', async(req, res) => {
         let auth = req.headers.auth
+        const db = client.db('database')
         res.code(200).send()
+        //TODO Update all changes
     });
 
     //upload files to the server by posting to this url
@@ -261,15 +193,10 @@ async function routes(fastify) {
         console.log("Uploading a file to the server")
         let ID = crypto.randomBytes(10).toString('hex')
         filename = ID + path.extname(req.headers.name);
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').findOne({token: auth})
-            let obj = {id: ID, file: filename, title:title, description:description, author:cursor.username, tags:tags.substring(1, tags.length-1).replace(/"/g,'').split(",")}
-            var insert = await db.collection('images').insertOne(createImage(obj))
-            client.close();
-        })
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').findOne({token: auth})
+        var obj = {id: ID, file: filename, title:title, description:description, author:cursor.username, tags:tags.substring(1, tags.length-1).replace(/"/g,'').split(",")}
+        var insert = await db.collection('images').insertOne(createImage(obj))
         pipeline(
           req.body,
           fs.createWriteStream(`${dir}/${filename}`),
@@ -304,58 +231,41 @@ async function routes(fastify) {
               return;
             }
             else{
+                const db = client.db('database')
                 console.log(`File stored to ${dir}/${filename}`)
-                MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-                    assert.equal(null, err);
-                    var db = client.db("database");
-                    //here I should delete the previous file
-                    var cursor = await db.collection('accounts').updateOne({username: user}, {$set: {profilePic: link}})
-                    client.close()
-                });
-                res.send({response: link}) //respond with updated image link!
+                var cursor = db.collection('accounts').updateOne({username: user}, {$set: {profilePic: link}})   
+                res.send({response: link}) //respond with updated image link! Don't need to, normal OK is fine now
             }
           }
         )
     })
 
     fastify.post('/accounts/query', async(req, res) => {
-        let query = req.body.query
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
-            let output = cursor.map(({_id, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
-            res.send(output)
-            client.close()
-        });
+        let query = req.body.query 
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
+        let output = cursor.map(({_id, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
+        res.send(output)
     })
     
-    fastify.post('/images/get', async (req, res) => {  //image database
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('images').find().sort(req.body).toArray()
-            let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
-            output.map(function(key){
-                key["file"] = "http://localhost:3000/img/" + key.file
-            })
-            res.send(output)
-            client.close()
-        });
+    fastify.post('/images/get', async (req, res) => { 
+        const db = client.db('database')
+        var cursor = await db.collection('images').find().sort(req.body).toArray()
+        let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
+        output.map(function(key){
+            key["file"] = "http://localhost:3000/img/" + key.file
+        })
+        res.send(output)
     })
 
     fastify.post('/images/id', async (req, res) => {  //image database
         let id = req.body.id
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true}, async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var view = await db.collection('images').updateOne({id: id}, {$inc:{views: 1}})
-            var cursor = await db.collection('images').findOne({id: id})
-            delete cursor._id
-            cursor.file = "http://localhost:3000/img/" + cursor.file
-            res.send(cursor)
-            client.close()
-        });
+        const db = client.db('database')
+        var views = await db.collection('images').updateOne({id: id}, {$inc:{views: 1}})
+        var cursor = await db.collection('images').findOne({id: id})
+        delete cursor._id
+        cursor.file = "http://localhost:3000/img/" + cursor.file
+        res.send(cursor)
     })
 
     fastify.post('/images/comment', async (req, res) => {  //image database
@@ -363,16 +273,10 @@ async function routes(fastify) {
         let username = req.body.username
         let avatar = req.body.url
         let id = req.body.id
-        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
-        async function(err, client) {
-            assert.equal(null, err);
-            var db = client.db("database");
-            var cursor = await db.collection('images').updateOne({id: id}, {$push: {comments: {username: username, url: avatar, content:content, date: new Date()}}})
-            res.code(200).send()
-            client.close()
-        })
+        const db = client.db('database')
+        var cursor = await db.collection('images').updateOne({id: id}, {$push: {comments: {username: username, url: avatar, content:content, date: new Date()}}})
+        res.code(200).send()
     })
-
 }
 
 module.exports = routes
