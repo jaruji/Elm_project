@@ -257,18 +257,19 @@ async function routes(fastify) {
         let title = req.headers.title
         let tags = req.headers.tags
         let description = req.headers.description
+        var username
         console.log("Uploading a file to the server")
         let ID = crypto.randomBytes(10).toString('hex')
         filename = ID + path.extname(req.headers.name);
-        /*
-        let user = await getUserByToken(auth)
-
-        if(user === undefined){
-            res.code(400).send(new Error("Unauthorized uploader"))
-            return
-        }*/
-        let obj = {id: ID, file: filename, title:title, description:description, author:auth, tags:tags.substring(1, tags.length-1).replace(/"/g,'').split(",")}
-        INSERT("images", createImage(obj))
+        MongoClient.connect(url, {useNewUrlParser:true, useUnifiedTopology:true},
+        async function(err, client) {
+            assert.equal(null, err);
+            var db = client.db("database");
+            var cursor = await db.collection('accounts').findOne({token: auth})
+            let obj = {id: ID, file: filename, title:title, description:description, author:cursor.username, tags:tags.substring(1, tags.length-1).replace(/"/g,'').split(",")}
+            var insert = await db.collection('images').insertOne(createImage(obj))
+            client.close();
+        })
         pipeline(
           req.body,
           fs.createWriteStream(`${dir}/${filename}`),

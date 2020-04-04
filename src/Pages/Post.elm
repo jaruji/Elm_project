@@ -89,7 +89,7 @@ view model =
                         h1[][ text image.title ]
                         , h4 [ class "float-right" ] [
                             text "Uploaded by "
-                            , a [ href "/profile/jaruji" ][ text "jaruji" ]
+                            , a [ href ("/profile/" ++ image.author) ][ text image.author ]
                         ]
                     ]
                     , hr[ style "width" "50%"

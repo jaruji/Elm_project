@@ -116,30 +116,19 @@ view model =
 
         Success images ->
           div[][
-            div [ class "panel panel-default"
-            , style "border" "none" ]
-               (List.map showPreview images)
+            if List.isEmpty images then
+              div [ class "alert alert-warning"
+              , style "margin" "auto"
+              , style "width" "50%"
+              , style "margin-top" "50px" ][
+                text "There are no images in the gallery"
+              ]
+            else 
+              div [ class "panel panel-default"
+              , style "border" "none" ]
+                (List.map showPreview images)
           ]
   ]
-
-viewEye: String -> Html msg
-viewEye count =
-  button[ style "color" "gray"
-  , style "background" "Transparent"
-  , style "outline" "none"
-  , style "border" "none"
-  , style "opacity" "0.8" ][
-    Icons.eye |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
-    , span [ style "margin-left" "10px" ][ text count ]
-  ]
-
-viewMessages: Html msg
-viewMessages =
-     Icons.messageSquare |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
-
-viewThumbsUp: Html msg
-viewThumbsUp =
-     Icons.thumbsUp |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
 
 showPreview: ImagePreview -> Html Msg
 showPreview image =
@@ -153,7 +142,7 @@ showPreview image =
           text image.title 
         ]
         , div [ class "help-block" 
-        , style "margin-top" "-10px" ][ text ("by "), a [ href "/profile/jaruji" ] [ text "jaruji"] ]
+        , style "margin-top" "-10px" ][ text ("by "), a [ href ("/profile/" ++ image.author) ] [ text image.author] ]
         , img[src image.url
         , height 400
         , class "preview thumbnail"
@@ -164,18 +153,6 @@ showPreview image =
         ]
       ]
     ]   
-    {--
-    , div [ style "margin-top" "10px"
-    , style "margin" "auto" ] [
-      div [ class "caption" ][ text "0 comments" ]
-    --}
-    {--
-      span [ style "float" "left", style "margin-left" "60px" ][ viewEye (String.fromInt image.views) ]
-      , span [][ viewMessages, text "0" ]
-      , span [ style "float" "right", style "margin-right" "60px" ][ viewThumbsUp, text (String.fromInt (image.upvotes - image.downvotes)) ]
-    --}
-    --]
-    --, hr [][]
   ]
 
 imagePreviewDecoder: Decode.Decoder ImagePreview
