@@ -147,7 +147,7 @@ showPreview image =
           img[src image.url
           , height 400
           , class "preview thumbnail"
-          , width 300
+          , width 400
           , style "object-fit" "cover"
           , style "margin" "auto 10px" ][
             text "Could not display image" 

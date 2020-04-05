@@ -92,7 +92,7 @@ view model =
                         , h4 [ class "float-right" ] [
                             text "Uploaded by "
                             , a [ href ("/profile/" ++ image.author) ][ text image.author ]
-                            , text (" at " ++ TimeFormat.formatTime image.uploaded) 
+                            , text (" on " ++ TimeFormat.formatTime image.uploaded) 
                         ]
                     ]
                     , hr[ style "width" "50%"
@@ -101,6 +101,7 @@ view model =
                     , img [ src image.url
                     , style "max-width" "1000px"
                     , style "max-height" "1500px" ] []
+                    --, div [] [ span [ class "glyphicon glyphicon-heart" ] [] ]
                     , case List.isEmpty image.tags of
                         True ->
                             div[][
@@ -150,9 +151,9 @@ view model =
                         ]
                     Nothing ->
                         div[ class "alert alert-warning"
-                        , style "width" "50%" 
+                        , style "width" "30%" 
                         , style "margin" "auto"
-                        , style "margin-top" "50px" ][
+                        , style "margin-top" "20px" ][
                             text "You must be logged in to comment"
                         ]
                 , div [ class "row"
@@ -161,7 +162,6 @@ view model =
 
 viewComment: Comment.Model -> Html Msg
 viewComment comment =
-
     div[ class "media"
     , style "width" "50%"
     , style "margin" "auto"
@@ -178,7 +178,23 @@ viewComment comment =
         div [ class "media-heading" ][
             div [ class "help-block" ] [
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
-                , text ( " on " ++ (TimeFormat.formatTime comment.date)) 
+                , text ( " on " ++ (TimeFormat.formatTime comment.date))
+                {--
+                , button [ style "color" "red"
+                , class "pull-right"
+                , style "height" "20px"
+                , style "width" "20px"
+                , style "border" "none"
+                , style "background" "Transparent"
+                , style "outline" "none" ][ span [ class "glyphicon glyphicon-remove" ] [] ]  
+                , button [ style "color" "lightgreen"
+                , class "pull-right"
+                , style "height" "20px"
+                , style "width" "20px"
+                , style "border" "none"
+                , style "background" "Transparent"
+                , style "outline" "none" ][ span [ class "glyphicon glyphicon-pencil" ] [] ]
+            --}
             ]
         ]
         , div[][

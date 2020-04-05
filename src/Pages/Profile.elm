@@ -11,11 +11,14 @@ import Server
 import File exposing (File, size, name)
 import File.Select as Select
 import Json.Decode as Decode exposing (Decoder, field, string, int)
+import Json.Decode.Extra as DecodeExtra
+import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import Json.Encode as Encode exposing (..)
 import LineChart
 import FeatherIcons as Icons
 import Social
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
+import Time
 import TimeFormat
 
 type alias Model =
@@ -25,8 +28,33 @@ type alias Model =
     , tab: Tab
     , code: String
     , bio: String
+    {--
+    , firstName : String
+    , surname: String
+    , occupation: String
+    , facebook: String
+    , twitter: String
+    , github: String
+    --}
     , fragment: String
     , status: Status
+    , posts: PostStatus
+  }
+
+
+init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg, Session.UpdateSession)
+init key user fragment = 
+    if fragment == user.username then
+        (Model user key Information "" "" fragment Success LoadingPost, getPosts user.username, Session.NoUpdate)
+    else 
+        (Model user key Information "" "" fragment Loading LoadingPost, Cmd.batch [ loadUser fragment, getPosts fragment ], Session.NoUpdate)
+
+type alias PostPreview =
+  { 
+    title: String
+    , uploaded: Time.Posix
+    , id: String
+    , url: String 
   }
 
 type alias Point =
@@ -34,6 +62,11 @@ type alias Point =
     x : Float
     , y : Float 
   }
+
+type PostStatus
+ = LoadingPost
+ | SuccessPost (List PostPreview)
+ | FailurePost
 
 type Status
   = Loading
@@ -48,6 +81,14 @@ type Msg
   | SwitchHistory
 -- Here are msgs needed for updating and handling all inputs
   | Bio String
+  {--
+  | FirstName String
+  | Surname String
+  | Occupation String
+  | Facebook String
+  | Twitter String
+  | Github String
+  --}
   --| OldPassword String
   --| NewPassword String
   --| NewPasswordA String
@@ -59,6 +100,7 @@ type Msg
   | MailResponse (Result Http.Error())
   | AvatarResponse (Result Http.Error String)
   | VerifyResponse (Result Http.Error Bool)
+  | PostsResponse (Result Http.Error (List PostPreview))
   | Response (Result Http.Error User.Model)
   | Select
   | GotFile File
@@ -68,13 +110,6 @@ type Tab
   | Settings
   | Security
   | History
-
-init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg, Session.UpdateSession)
-init key user fragment = 
-    if fragment == user.username then
-        (Model user key Information "" "" fragment Success, Cmd.none, Session.NoUpdate)
-    else 
-        (Model user key Information "" "" fragment Loading, loadUser fragment, Session.NoUpdate)
 
 update: Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
 update msg model =
@@ -119,6 +154,13 @@ update msg model =
     MailResponse _ ->
         (model, Cmd.none, Session.NoUpdate)
 
+    PostsResponse response ->
+        case response of
+            Ok posts ->
+                ({ model | posts = SuccessPost posts }, Cmd.none, Session.NoUpdate)
+            Err log ->
+                ({ model | posts = FailurePost }, Cmd.none, Session.NoUpdate)
+
     Response response ->
         case response of
             Ok user ->
@@ -131,7 +173,25 @@ update msg model =
 
     Bio string ->
         ({model | bio = string}, Cmd.none, Session.NoUpdate)
+    {--
+    FirstName string ->
+        ({model | firstName = string}, Cmd.none, Session.NoUpdate)
 
+    Surname string -> 
+        ({model | surname = string}, Cmd.none, Session.NoUpdate)
+
+    Occupation string ->
+        ({model | occupation = string}, Cmd.none, Session.NoUpdate)
+
+    Facebook string ->
+        ({model | facebook = string}, Cmd.none, Session.NoUpdate)
+
+    Twitter string ->
+        ({model | twitter = string}, Cmd.none, Session.NoUpdate)
+
+    Github string ->
+        ({model | github = string}, Cmd.none, Session.NoUpdate)
+    --}
     UpdateSettings ->
         (model, patch model.user.token "bio" model.bio, Session.NoUpdate)
 
@@ -223,6 +283,19 @@ view model =
                                 , h3 [] [ text "Account information" ]
                                 , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
                                 , text ("Registered at " ++ TimeFormat.formatTime user.registered)
+                                , hr [][]
+                                , h3 [] [ text "Post history" ]
+                                , div [ class "help-block" ] [ text ("Preview of " ++ user.username ++ "'s posts") ]
+                                , case model.posts of
+                                    LoadingPost ->
+                                        div [] [ text "Loading posts" ]
+                                    FailurePost ->
+                                        div [ class "alert alert-warning", style "width" "50%", style "margin" "auto" ] [ text "Connection error"]
+                                    SuccessPost posts ->
+                                        if List.isEmpty posts == True then
+                                            div [ style "font-style" "italic" ] [ text "This user has no posts" ]
+                                        else
+                                            div [] (List.map viewPost posts)
                             ]
                         Settings ->
                             div [][ 
@@ -369,10 +442,35 @@ view model =
                                 , div [ style "margin-left" "20%"] [ LineChart.view1 .x .y
                                     [ Point 1 2, Point 5 5, Point 10 10 ] ]
                                 , hr [] []
-                                , h3 [] [ text "My posts" ] 
-                                , div [ class "help-block" ] [ text "This sections contains your entire post history" ]
+                                , h3 [] [ text "My activity" ] 
+                                , div [ class "help-block" ] [ text "This sections contains logs of your activity" ]
                             ]
                 ]
+    ]
+
+viewPost: PostPreview -> Html Msg
+viewPost post =
+    div[ class "media"
+    , style "width" "70%"
+    , style "margin" "auto"
+    , style "margin-bottom" "20px"  ][
+        div[ class "media-left" ][
+            img [ src post.url
+            , class "avatar"
+            , height 100
+            , width 100 ][]
+        ]
+        , div[ class "media-body well"
+        , style "text-align" "left" ][
+            div [ class "media-heading" ][
+                div [ class "help-block" ] [
+                    text (TimeFormat.formatTime post.uploaded)
+                ]
+            ]
+            , div [ class "media-body" ][
+                a [ href ("/post/" ++ post.id) ] [ text post.title ]
+            ]
+        ]
     ]
 
 viewStringInfo: Maybe String -> String -> Html Msg
@@ -470,6 +568,28 @@ settingsEncoder model =
         ]
 --}
 
+decodePostPreview: Decode.Decoder PostPreview
+decodePostPreview =
+    Decode.succeed PostPreview
+        |> required "title" Decode.string 
+        |> required "uploaded" DecodeExtra.datetime
+        |> required "id" Decode.string
+        |> required "file" Decode.string 
+
+
+getPosts: String -> Cmd Msg
+getPosts username =
+    Http.request
+    {
+        method = "POST"
+        , headers = []
+        , url = Server.url ++ "/account/posts"
+        , body = Http.jsonBody <| (stringEncoder "username" username)
+        , expect = Http.expectJson PostsResponse (Decode.list decodePostPreview)
+        , timeout = Nothing
+        , tracker = Nothing
+    }
+
 put : File -> String -> Cmd Msg
 put file user = 
   Http.request
@@ -482,7 +602,7 @@ put file user =
     , tracker = Nothing
     }
 
-loadUser : String -> Cmd Msg
+loadUser: String -> Cmd Msg
 loadUser username = 
   Http.request
     { method = "POST"
@@ -494,7 +614,7 @@ loadUser username =
     , tracker = Nothing
     }
 
-patch : String -> String -> String -> Cmd Msg
+patch: String -> String -> String -> Cmd Msg
 patch token key value =
     Http.request
     {

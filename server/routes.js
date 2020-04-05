@@ -175,6 +175,18 @@ async function routes(fastify) {
         })
     })
 
+    fastify.post('/account/posts', async(req, res) => {
+        //get preview of user's posts
+        let author = req.body.username
+        const db = client.db('database')
+        var cursor = await db.collection('images').find({author: author}).sort({uploaded: -1}).toArray()
+        let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, views, author, ...rest}) => rest)
+        output.map(function(key){
+            key["file"] = "http://localhost:3000/img/" + key.file
+        })
+        res.send(output)
+    });
+
     fastify.patch('/account/update', async(req, res) => {
         let auth = req.headers.auth
         const db = client.db('database')
@@ -283,6 +295,7 @@ async function routes(fastify) {
         var cursor = await db.collection('images').updateOne({id: id}, {$push: {comments: {username: username, url: avatar, content:content, date: new Date()}}})
         res.code(200).send()
     })
+
 }
 
 module.exports = routes

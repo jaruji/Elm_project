@@ -382,7 +382,9 @@ viewHeader model =
             Just user ->
              ul [ class "nav navbar-nav navbar-right" ] [
               li [] [ img [ class "avatar", style "border-radius" "50%", style "margin-top" "5px", src user.avatar, height 40, width 40 ] [] ]
-              , li [] [ a [ href ("/profile/" ++ user.username ++ "#information") ]  [ text user.username ] ]
+              , li [] [ a [ href ("/profile/" ++ user.username ++ "#information"), case model.page of 
+                Profile _ -> style "color" "white" 
+                _ -> style "" "" ]  [ text user.username ] ]
               , li [] [ a [ onClick LogOut ] [ span [ class "glyphicon glyphicon-log-out", style "margin-right" "2px" ][], text "Log Out" ] ]
              ]
       ] 
