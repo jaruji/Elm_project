@@ -194,8 +194,14 @@ async function routes(fastify) {
         let ID = crypto.randomBytes(10).toString('hex')
         filename = ID + path.extname(req.headers.name);
         const db = client.db('database')
+        if(tags.length == 1 && a[0] == "")
+            tags = null
+        else
+            tags = tags.substring(1, tags.length-1).replace(/"/g,'').split(",")
+        if(description.length == 1 && description[0])
+            description = null
         var cursor = await db.collection('accounts').findOne({token: auth})
-        var obj = {id: ID, file: filename, title:title, description:description, author:cursor.username, tags:tags.substring(1, tags.length-1).replace(/"/g,'').split(",")}
+        var obj = {id: ID, file: filename, title:title, description:description, author:cursor.username, tags:tags}
         var insert = await db.collection('images').insertOne(createImage(obj))
         pipeline(
           req.body,

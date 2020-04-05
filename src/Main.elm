@@ -49,11 +49,11 @@ main =
 -- MODEL
 
 type alias Model =
-  { key : Nav.Key
-  , url : Url.Url
-  , page : Page
-  , search : ( Search.Model, Cmd Search.Msg )
-  , state : State
+  { key: Nav.Key
+  , url: Url.Url
+  , page: Page
+  , search: ( Search.Model, Cmd Search.Msg )
+  , state: State
   }
 
 type Page 
@@ -69,25 +69,26 @@ type Page
   | Users Users.Model
   | Post Post.Model
 
-
 type State
   = Ready Session.Session
   | NotReady String
   | Failure
 
--- will accept Maybe ? -> if its Nothing, everything works just as it did
--- if the value is Just, will need to request entire user from server! Will enable
--- to refresh page after update, will not need to "hack" anymore
-
---todo: full screen carousel, external font header + fix nav color when clicked
---fix footer + maybe add simple contact page - yeah, no
--- DONE finish login through local storage
--- finish all profile options
--- DONE? create upload image formular
--- fix loading of all images from the server
--- create users page, enable searching of users and add profile view for users
--- enable image search + search history stored in localstorage
--- teraz sa mi dojebal carousel :) najc
+type Msg
+  = UrlRequest Browser.UrlRequest
+  | UrlChange Url.Url
+  --converter types
+  | GalleryMsg Gallery.Msg 
+  | SignUpMsg SignUp.Msg
+  | SignInMsg SignIn.Msg
+  | HomeMsg Home.Msg
+  | UploadMsg Upload.Msg
+  | ProfileMsg Profile.Msg
+  | UsersMsg Users.Msg
+  | UpdateSearch Search.Msg
+  | PostMsg Post.Msg
+  | LogOut
+  | Response (Result Http.Error User.Model)
 
 init : Maybe String -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flag url key =
@@ -109,22 +110,6 @@ init flag url key =
         , state = NotReady token
         }
     
-
-type Msg
-  = UrlRequest Browser.UrlRequest
-  | UrlChange Url.Url
-  | GalleryMsg Gallery.Msg  --converter types
-  | SignUpMsg SignUp.Msg
-  | SignInMsg SignIn.Msg
-  | HomeMsg Home.Msg
-  | UploadMsg Upload.Msg
-  | ProfileMsg Profile.Msg
-  | UsersMsg Users.Msg
-  | UpdateSearch Search.Msg
-  | PostMsg Post.Msg
-  | LogOut
-  | Response (Result Http.Error User.Model)
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
@@ -359,35 +344,7 @@ viewImage path w h =
   img[src path, width w, height h] []
 
 viewHeader: Model -> Html Msg
-viewHeader model =
-    div [] [
-        viewNav model
-    ]
-
-viewBanner: Model -> String -> Html Msg
-viewBanner model link =
-  let 
-    url = "url(" ++ link ++ ")"
-  in
-    div [ 
-    style "background-image" url
-    , style "width" "100%"
-    , style "height" "250px"
-    , style "color" "white"
-    , style "margin-top" "60px" ][  
-      case model.state of
-        Ready session ->
-          case session.user of
-            Just user ->
-              h1 [ style "text-align" "center" ] [ text ("Welcome to Elm Gallery, " ++ user.username) ]
-            Nothing -> 
-              h1 [ style "text-align" "center" ] [ text "Welcome to Elm Gallery" ]
-        _ ->
-          text ""
-      ]
-
-viewNav: Model -> Html Msg
-viewNav model = 
+viewHeader model = 
   div [ class "navbar navbar-inverse navbar-fixed-top", style "opacity" "0.95" ]
     [ 
       div [ class "container-fluid" ][
@@ -397,18 +354,30 @@ viewNav model =
             ]
         ]
         , ul [ class "nav navbar-nav" ][
-            li [] [ a [ href "/" ] [ text "Home"] ]
-            , li [] [ a [ href "/gallery" ] [ text "Gallery" ] ]
-            , li [] [ a [ href "/upload" ] [ text "Upload"] ]
-            , li [] [ a [ href "/users" ] [ text "Users"] ]
+            li [] [ a [ href "/", case model.page of 
+              Home _ -> style "color" "white" 
+              _ -> style "" "" ] [ text "Home" ] ]
+            , li [] [ a [ href "/gallery", case model.page of 
+              Gallery _ -> style "color" "white" 
+              _ -> style "" "" ] [ text "Gallery" ] ]
+            , li [] [ a [ href "/upload", case model.page of 
+              Upload _ -> style "color" "white" 
+              _ -> style "" "" ] [ text "Upload" ] ]
+            , li [] [ a [ href "/users", case model.page of 
+              Users _ -> style "color" "white" 
+              _ -> style "" "" ] [ text "Users" ] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
         ]
         
         , case getUser model.state of
             Nothing ->
               ul [ class "nav navbar-nav navbar-right" ][
-                li [] [ a [ href "/sign_in" ] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
-                , li [] [ a [ href "/sign_up" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
+                li [] [ a [ href "/sign_in" , case model.page of 
+                  SignIn _ -> style "color" "white" 
+                  _ -> style "" "" ] [ span [class "glyphicon glyphicon-user"][], text " Sign In"] ]
+                , li [] [ a [ href "/sign_up" , case model.page of 
+                  SignUp _ -> style "color" "white" 
+                  _ -> style "" "" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
               ]
             Just user ->
              ul [ class "nav navbar-nav navbar-right" ] [

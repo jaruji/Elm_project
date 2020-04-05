@@ -4,10 +4,12 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Decode exposing (..)
+import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Server
 import Image.Comment as Comment
+import Time
 
 type alias Model =
   {
@@ -21,6 +23,7 @@ type alias Model =
     , downvotes: Int
     , views: Int
     , comments: List Comment.Model
+    , uploaded: Time.Posix
   }
 
 decodeImage: Decode.Decoder Model
@@ -36,3 +39,4 @@ decodeImage =
         |> required "downvotes" Decode.int
         |> required "views" Decode.int
         |> optional "comments" (Decode.list Comment.commentDecoder) []
+        |> required "uploaded" DecodeExtra.datetime

@@ -24,6 +24,13 @@ viewFacebook url =
         ] [ Icons.facebook |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]
 
+validateSocial: String -> String -> Bool
+validateSocial url social =
+    if String.startsWith "www." url && String.contains social url && String.endsWith ".com" url then
+        True
+    else
+        False
+
 viewTwitter: String -> Html msg
 viewTwitter url =
     a [ href url ] [

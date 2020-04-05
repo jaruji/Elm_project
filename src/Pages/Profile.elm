@@ -16,6 +16,7 @@ import LineChart
 import FeatherIcons as Icons
 import Social
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
+import TimeFormat
 
 type alias Model =
   {  
@@ -221,7 +222,7 @@ view model =
                                 , hr [] []
                                 , h3 [] [ text "Account information" ]
                                 , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
-                                , viewStringInfo user.firstName "Registered at"
+                                , text ("Registered at " ++ TimeFormat.formatTime user.registered)
                             ]
                         Settings ->
                             div [][ 
@@ -451,6 +452,23 @@ verifyCode model =
 stringEncoder: String -> String -> Encode.Value
 stringEncoder key value =
     Encode.object [(key, Encode.string value)]
+
+{--
+settingsEncoder: Model -> Encode.Value
+settingsEncoder model =
+    Encode.object 
+        [
+            ("firstName", Encode.string model.firstName)
+            , ("surname", Encode.string model.surname)
+            , ("occupation", Encode.string model.occupation)
+            , ("age", Encode.int model.age)
+            , ("sex", Encode.string model.sex)
+            , ("facebook", Encode.string model.facebook)
+            , ("twitter", Encode.string model.twitter)
+            , ("github", Encode.string model.github)
+            , ("bio", Encode.string model.bio)
+        ]
+--}
 
 put : File -> String -> Cmd Msg
 put file user = 

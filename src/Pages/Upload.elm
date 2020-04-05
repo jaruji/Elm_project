@@ -182,7 +182,8 @@ view model =
               --, hijackOn "drop" dropDecoder
             ][ 
               button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
-              , div [ class "help-block" ] [ text "Drag and Drop an image here" ]
+              , div [ class "help-block" ] [ text "-OR-" ]
+              , div [ class "help-block" ] [ text "Drag & Drop" ]
               
             ]
           else

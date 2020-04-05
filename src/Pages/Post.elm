@@ -17,6 +17,7 @@ import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Image
 import Image.Comment as Comment
 import Tag
+import TimeFormat
 
 type alias Model =
   { 
@@ -86,10 +87,12 @@ view model =
             div[ style "margin-top" "-40px" ] [
                 div [ class "jumbotron" ][
                     div[][
-                        h1[][ text image.title ]
+                        h1[ style "max-width" "1000px"
+                        , style "margin" "auto" ][ text image.title ]
                         , h4 [ class "float-right" ] [
                             text "Uploaded by "
                             , a [ href ("/profile/" ++ image.author) ][ text image.author ]
+                            , text (" at " ++ TimeFormat.formatTime image.uploaded) 
                         ]
                     ]
                     , hr[ style "width" "50%"
@@ -116,7 +119,11 @@ view model =
                     , p [ style "font-size" "16px"
                     , style "max-width" "600px"
                     , style "margin" "auto" ][
-                        text image.description 
+                        case image.description of
+                            "No description" ->
+                                div [ style "font-style" "italic" ][ text image.description ]
+                            _ -> 
+                                text image.description 
                     ]
                 ]
                 , h2 [] [ text ("Comments (" ++ String.fromInt (List.length image.comments) ++ ")") ]
@@ -152,27 +159,34 @@ view model =
                 , style "margin-top" "100px" ][]
             ]
 
-
---If I send the url and he changes his avatar, it gets fucked... Need to send only
--- username and he gets avatar from database? still gets fucked tho...fuuck
 viewComment: Comment.Model -> Html Msg
 viewComment comment =
-    div [][
+
+    div[ class "media"
+    , style "width" "50%"
+    , style "margin" "auto"
+    , style "margin-bottom" "20px"  ][
+    div[ class "media-left" ][
         img [ src comment.url
         , class "avatar"
         , height 80
         , width 80
         , style "border-radius" "50%" ][]
-        , div [] [ a [ href ("/profile/" ++ comment.username) ][ text comment.username ] ]
-        , div [ class "well"
-        , style "max-width" "50%"
-        , style "margin" "auto"
-        , style "margin-bottom" "20px" ][
+    ]
+    , div[ class "media-body well"
+    , style "text-align" "left" ][
+        div [ class "media-heading" ][
+            div [ class "help-block" ] [
+                a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
+                , text ( " on " ++ (TimeFormat.formatTime comment.date)) 
+            ]
+        ]
+        , div[][
             text comment.content
         ]
     ]
-
-
+ ]
+   
 encodeID: String -> Encode.Value
 encodeID id =
   Encode.object[("id", Encode.string id)]

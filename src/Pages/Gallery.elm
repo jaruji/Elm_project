@@ -15,9 +15,6 @@ import User
 import Image
 import Server
 
---https://package.elm-lang.org/packages/FabienHenon/elm-infinite-scroll/latest/InfiniteScroll
---https://w3bits.com/labs/css-image-hover-zoom/ -make the gallery looks like this :)
-
 type alias Model = 
   {
     status: Status
@@ -64,7 +61,7 @@ update msg model =
                     ({ model | status = Failure }, Cmd.none )
 
         SortNewest ->
-          ({ model | status = Loading }, post "uploadedAt" -1)
+          ({ model | status = Loading }, post "uploaded" -1)
 
         SortPopular ->
           ({ model | status = Loading }, post "views" -1)
@@ -135,25 +132,37 @@ showPreview image =
   div [ style "display" "inline-block"
   , class "jumbotron"
   , style "background-color" "white" ][
-    a[ href ("/post/" ++ image.id) 
-    , class "preview" ][
+    div[][
       div [ style "margin-top" "-40px"][
         h4 [][
-          text image.title 
+          a [ class "preview", 
+          href ("/profile/" ++ image.author) ] [ text (trimString image.title) ]
         ]
         , div [ class "help-block" 
-        , style "margin-top" "-10px" ][ text ("by "), a [ href ("/profile/" ++ image.author) ] [ text image.author] ]
-        , img[src image.url
-        , height 400
-        , class "preview thumbnail"
-        , width 300
-        , style "object-fit" "cover"
-        , style "margin" "auto 10px" ][
-          text "Could not display image" 
+        , style "margin-top" "-10px" ][
+          text ("by ")
+          , a [ href ("/profile/" ++ image.author) ][ text image.author ]
+        ]
+        , a [ href ("/post/" ++ image.id) ][
+          img[src image.url
+          , height 400
+          , class "preview thumbnail"
+          , width 300
+          , style "object-fit" "cover"
+          , style "margin" "auto 10px" ][
+            text "Could not display image" 
+          ]
         ]
       ]
     ]   
   ]
+
+trimString: String -> String
+trimString string =
+  if String.length string > 25 then
+    String.append (String.slice 0 25 string) "..."
+  else
+    string
 
 imagePreviewDecoder: Decode.Decoder ImagePreview
 imagePreviewDecoder =
