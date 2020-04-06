@@ -24,6 +24,7 @@ type alias Model =
     key: Nav.Key
     , user: Maybe User.Model
     , status: Status
+    , comments: CommentStatus
     , comment: String
     , id: String
   }
@@ -33,15 +34,22 @@ type Status
   | Success Image.Model
   | Failure
 
+type CommentStatus
+  = LoadingComments
+  | SuccessComments (List Comment.Model)
+  | FailureComments
+
+
 type Msg
   = Response (Result Http.Error (Image.Model))
+  | LoadComments (Result Http.Error (List Comment.Model))
   | CommentResponse (Result Http.Error())
   | Comment String
   | Submit
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading "" "", post fragment)
+    (Model key user Loading LoadingComments "" "", Cmd.batch [ post fragment, loadComments fragment ])
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -53,10 +61,17 @@ update msg model =
                 Err _ ->
                     ({ model | status = Failure }, Cmd.none)
 
+        LoadComments response ->
+            case response of
+                Ok comments ->
+                    ({ model | comments = SuccessComments comments }, Cmd.none)
+                Err _ ->
+                    ({ model | comments = FailureComments }, Cmd.none)
+
         CommentResponse response ->
             case response of
                 Ok _ ->
-                    (model, Nav.reload)
+                    (model, loadComments model.id)
                 Err _ ->
                     (model, Cmd.none)
 
@@ -66,7 +81,7 @@ update msg model =
         Submit ->
             case model.user of
                 Just user -> 
-                    ({ model | comment = "" }, postComment model.id user.username user.avatar model.comment)
+                    ({ model | comment = "" }, postComment model.id user.username model.comment)
                 _ ->
                     (model, Cmd.none)
 
@@ -127,12 +142,30 @@ view model =
                                 text image.description 
                     ]
                 ]
-                , h2 [] [ text ("Comments (" ++ String.fromInt (List.length image.comments) ++ ")") ]
-                , case List.isEmpty image.comments of
-                    True ->
-                        div [ style "font-style" "italic" ] [ text "No comments" ] 
-                    False ->
-                        div [] (List.map viewComment image.comments)
+                , case model.comments of
+                    LoadingComments ->
+
+                        div [] [
+                            h2 [] [ text "Comments" ]
+                            , Loader.render Loader.Circle Loader.defaultConfig Loader.On
+                        ]
+                    FailureComments ->
+                        div [] [
+                            h2 [] [ text "Comments" ]
+                            , div [ class "alert alert-warning"
+                            , style "width" "50%"
+                            , style "margin" "auto" ] [ text "Comment section failed to load" ]
+                        ]
+
+                    SuccessComments comments ->
+                        div [] [
+                            h2 [] [ text ("Comments (" ++ String.fromInt (List.length comments) ++ ")") ]
+                            , case List.isEmpty comments of
+                                True ->
+                                    div [ style "font-style" "italic" ] [ text "No comments" ] 
+                                False ->
+                                    div [] (List.map viewComment comments) 
+                        ]
                 , div [ class "help-block"
                 , style "margin-top" "20px" ] [ text "Leave a comment on this post" ]
                 , case model.user of
@@ -207,21 +240,29 @@ encodeID: String -> Encode.Value
 encodeID id =
   Encode.object[("id", Encode.string id)]
 
-encodeComment: String -> String -> String -> String -> Encode.Value
-encodeComment id username url content = 
+encodeComment: String -> String -> String -> Encode.Value
+encodeComment id username content = 
     Encode.object[
         ("id", Encode.string id)
         , ("username", Encode.string username)
-        , ("url", Encode.string url)
         , ("content", Encode.string content)
     ] 
 
-postComment: String -> String -> String -> String -> Cmd Msg
-postComment id username url content =
+loadComments: String -> Cmd Msg
+loadComments id =
     Http.post
       { 
-        url = Server.url ++ "/images/comment"
-        , body = Http.jsonBody <| encodeComment id username url content
+        url = Server.url ++ "/comment/get"
+        , body = Http.jsonBody <| encodeID id
+        , expect = Http.expectJson LoadComments (Decode.list Comment.commentDecoder)
+      }
+
+postComment: String -> String -> String -> Cmd Msg
+postComment id username content =
+    Http.post
+      { 
+        url = Server.url ++ "/comment/add"
+        , body = Http.jsonBody <| encodeComment id username content
         , expect = Http.expectWhatever CommentResponse
       }
 

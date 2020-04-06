@@ -22,7 +22,6 @@ type alias Model =
     , upvotes: Int
     , downvotes: Int
     , views: Int
-    , comments: List Comment.Model
     , uploaded: Time.Posix
   }
 
@@ -38,5 +37,4 @@ decodeImage =
         |> required "upvotes" Decode.int
         |> required "downvotes" Decode.int
         |> required "views" Decode.int
-        |> optional "comments" (Decode.list Comment.commentDecoder) []
         |> required "uploaded" DecodeExtra.datetime

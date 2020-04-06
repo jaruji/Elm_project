@@ -11,6 +11,7 @@ type alias Model =
     , username: String
     , url: String
     , date: Time.Posix
+    , points: Int
   }
 
 commentDecoder: Decode.Decoder Model
@@ -18,5 +19,6 @@ commentDecoder =
     Decode.succeed Model
         |> required "content" Decode.string 
         |> required "username" Decode.string
-        |> required "url" Decode.string
-        |> required "date" DecodeExtra.datetime
+        |> optional "avatar" Decode.string "placeholder"
+        |> required "uploaded" DecodeExtra.datetime
+        |> required "points" Decode.int

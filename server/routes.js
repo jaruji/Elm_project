@@ -286,14 +286,23 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
-    fastify.post('/images/comment', async (req, res) => {  //image database
+    fastify.post('/comment/add', async (req, res) => { 
         let content = req.body.content
         let username = req.body.username
-        let avatar = req.body.url
         let id = req.body.id
         const db = client.db('database')
-        var cursor = await db.collection('images').updateOne({id: id}, {$push: {comments: {username: username, url: avatar, content:content, date: new Date()}}})
+        let avatar = await db.collection('accounts').findOne({username:username})
+        console.log(avatar.profilePic)
+        avatar = avatar.profilePic
+        var cursor = await db.collection('comments').insertOne({content: content, username: username, imageID: id, uploaded: new Date(), points: 0, avatar: avatar})
         res.code(200).send()
+    })
+
+    fastify.post('/comment/get', async (req, res) => {
+        let id = req.body.id
+        const db = client.db('database')
+        var cursor = await db.collection('comments').find({imageID: id}).toArray()
+        res.send(cursor)
     })
 
 }

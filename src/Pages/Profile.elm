@@ -263,10 +263,10 @@ view model =
                         , div [ style "font-style" "italic" ] [ text user.bio ]
                         , if user.token /= "Hidden" then
                             ul [ class "nav nav-pills" ][
-                                li [][ a [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", href "#information", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
-                                , li [][ a [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", href "#settings", onClick SwitchSettings ] [ text "Settings"] ]
-                                , li [][ a [ if model.tab == Security then style "text-decoration" "underline" else style "" "", style "color" "black", href "#security", onClick SwitchSecurity ] [ text "Security"] ]
-                                , li [][ a [ if model.tab == History then style "text-decoration" "underline" else style "" "", style "color" "black", href "#history", onClick SwitchHistory ] [ text "History"] ]
+                                li [][ button [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
+                                , li [][ button [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchSettings ] [ text "Settings"] ]
+                                , li [][ button [ if model.tab == Security then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchSecurity ] [ text "Security"] ]
+                                , li [][ button [ if model.tab == History then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchHistory ] [ text "History"] ]
                             ]
                         else
                             text ""
@@ -288,7 +288,9 @@ view model =
                                 , div [ class "help-block" ] [ text ("Preview of " ++ user.username ++ "'s posts") ]
                                 , case model.posts of
                                     LoadingPost ->
-                                        div [] [ text "Loading posts" ]
+                                        div [] [
+                                            Loader.render Loader.Circle Loader.defaultConfig Loader.On
+                                        ]
                                     FailurePost ->
                                         div [ class "alert alert-warning", style "width" "50%", style "margin" "auto" ] [ text "Connection error"]
                                     SuccessPost posts ->
