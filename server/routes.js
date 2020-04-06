@@ -32,8 +32,7 @@ function createAccount(obj){
 }
 
 function createImage(obj){
-    obj.upvotes = 0
-    obj.downvotes = 0
+    obj.points = 0
     obj.views = 0
     obj.uploaded = new Date()
     return obj
@@ -67,6 +66,7 @@ function sendActivationMail(receiver, code){
 async function routes(fastify) {
 
     fastify.post('/account/sign_up', async (req, res) => {    //registering new account
+        //log = user has created his account
         res.header("Access-Control-Allow-Origin", "*")  //allows sharing the resource
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db('database')
@@ -99,6 +99,7 @@ async function routes(fastify) {
     })
 
     fastify.post('/account/verify', async(req, res) => {
+        //log this: user has verified his account
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db('database')
@@ -188,14 +189,24 @@ async function routes(fastify) {
     });
 
     fastify.patch('/account/update', async(req, res) => {
+        //log this = user has updating his personal settings
         let auth = req.headers.auth
+        let bio = req.body.bio
+        let firstName = req.body.firstName
+        let surname = req.body.surname
+        let occupation = req.body.occupation
+        let facebook = req.body.facebook
+        let twitter = req.body.twitter
+        let github = req.body.github
         const db = client.db('database')
+        let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, firstName: firstName, surname: surname, occupation:occupation, facebook:facebook, twitter:twitter, github:github}})
         res.code(200).send()
         //TODO Update all changes
     });
 
     //upload files to the server by posting to this url
     fastify.put('/upload/image', async(req, res) => {
+        //log this = user has uploaded new picture
         let dir = "./server/data/img"
         let auth = req.headers.auth
         let title = req.headers.title
@@ -234,6 +245,7 @@ async function routes(fastify) {
     })
 
     fastify.put('/upload/profile', async(req, res) => {
+        //log this: user has changed their profile picture
         user = req.headers["user"];
         filename = user + path.extname(req.headers["name"]);    //get name of received file
         let link = "http://localhost:3000/img/profile/" + filename
@@ -286,13 +298,29 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
+    fastify.patch('/images/rate', async (req, res) => {
+        //log this: user has rated an image
+        let id = req.body.id
+        let method = req.body.method
+        const db = client.db('database')
+        if (method == 1){
+            var cursor = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+        }
+        else if (method == -1){
+            var cursor = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+        }
+        else
+            res.code(400).send(new Error("Invalid operation"))
+        res.code(200).send()
+    })
+
     fastify.post('/comment/add', async (req, res) => { 
+        //log this: user has added new comment
         let content = req.body.content
         let username = req.body.username
         let id = req.body.id
         const db = client.db('database')
         let avatar = await db.collection('accounts').findOne({username:username})
-        console.log(avatar.profilePic)
         avatar = avatar.profilePic
         var cursor = await db.collection('comments').insertOne({content: content, username: username, imageID: id, uploaded: new Date(), points: 0, avatar: avatar})
         res.code(200).send()
@@ -305,6 +333,13 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
+    fastify.patch('/comment/edit', async (req, res) => {
+
+    })
+
+    fastify.delete('/comment/delete', async (req, res) => {
+
+    })
 }
 
 module.exports = routes

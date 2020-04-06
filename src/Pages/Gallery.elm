@@ -26,8 +26,7 @@ type alias ImagePreview =
     , title: String
     , url: String
     , author: String
-    , upvotes: Int
-    , downvotes: Int
+    , points: Int
     , views: Int
   }
 
@@ -171,8 +170,7 @@ imagePreviewDecoder =
         |> required "title" Decode.string
         |> required "file" Decode.string
         |> optional "author" Decode.string "Anonymous"
-        |> required "upvotes" Decode.int
-        |> required "downvotes" Decode.int
+        |> required "points" Decode.int
         |> required "views" Decode.int
 
 encodeQuery: String -> Int -> Encode.Value

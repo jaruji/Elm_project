@@ -44,8 +44,11 @@ type Msg
   = Response (Result Http.Error (Image.Model))
   | LoadComments (Result Http.Error (List Comment.Model))
   | CommentResponse (Result Http.Error())
+  | RateResponse (Result Http.Error())
   | Comment String
   | Submit
+  | Upvote
+  | Downvote
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
@@ -75,15 +78,27 @@ update msg model =
                 Err _ ->
                     (model, Cmd.none)
 
+        RateResponse response ->
+            (model, Cmd.none)
+
         Comment string ->
             ({ model | comment = string }, Cmd.none)
 
         Submit ->
             case model.user of
                 Just user -> 
-                    ({ model | comment = "" }, postComment model.id user.username model.comment)
+                    if model.comment == "" then
+                        (model, Cmd.none)
+                    else
+                        ({ model | comment = "" }, postComment model.id user.username model.comment)
                 _ ->
                     (model, Cmd.none)
+
+        Upvote ->
+            (model, rate 1 model.id)
+
+        Downvote ->
+            (model, rate -1 model.id)
 
 view: Model -> Html Msg
 view model =
@@ -112,11 +127,40 @@ view model =
                     ]
                     , hr[ style "width" "50%"
                     , style "margin" "auto"
-                    , style "margin-bottom" "50px" ][]
+                    , style "margin-bottom" "5px" ][]
+                    , div [ class "help-block" ] [ text ("This image has " ++ String.fromInt image.views ++ " views") ]
                     , img [ src image.url
                     , style "max-width" "1000px"
                     , style "max-height" "1500px" ] []
-                    --, div [] [ span [ class "glyphicon glyphicon-heart" ] [] ]
+                    , div [ style "width" "50%"
+                    , class "help-block"
+                    , style "margin" "auto"
+                    , style "margin-top" "10px" ] [ text ("Image currently has " ++ String.fromInt image.points ++ " points")]
+                    , div [] [ 
+                        button [ class "btn btn-danger"
+                        , style "margin-top" "10px"
+                        , style "margin-right" "10px"
+                        , style "color" "white"
+                        , onClick Downvote ][
+                            Icons.thumbsDown |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                        ]
+                        , button [ class "btn btn-success"
+                        , style "margin-top" "10px"
+                        , style "color" "white"
+                        , onClick Upvote ][
+                            Icons.thumbsUp |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                        ] 
+                    ]
+                    , h3 [] [ text "Description" ]
+                    , p [ style "font-size" "16px"
+                    , style "max-width" "600px"
+                    , style "margin" "auto" ][
+                        case image.description of
+                            "No description" ->
+                                div [ style "font-style" "italic" ][ text image.description ]
+                            _ -> 
+                                text image.description 
+                    ]
                     , case List.isEmpty image.tags of
                         True ->
                             div[][
@@ -128,20 +172,11 @@ view model =
                                 h3 [] [ text "Tags" ]
                                 , div [ style "max-width" "600px"
                                 , style "margin" "auto"
-                                , style "margin-top" "20px" ]
+                                , style "margin-top" "10px" ]
                                     (List.map Tag.view image.tags)
                             ]
-                    , h3 [] [ text "Description" ]
-                    , p [ style "font-size" "16px"
-                    , style "max-width" "600px"
-                    , style "margin" "auto" ][
-                        case image.description of
-                            "No description" ->
-                                div [ style "font-style" "italic" ][ text image.description ]
-                            _ -> 
-                                text image.description 
-                    ]
                 ]
+                --COMMENTS SECTION HERE
                 , case model.comments of
                     LoadingComments ->
 
@@ -173,7 +208,7 @@ view model =
                         div[][
                             textarea [ cols 100
                             , rows 7 
-                            , style "resize" "none"
+                            , style "resize" "vertical"
                             , placeholder "Enter your comment"
                             , onInput Comment
                             , Html.Attributes.value model.comment ] []
@@ -212,6 +247,7 @@ viewComment comment =
             div [ class "help-block" ] [
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
                 , text ( " on " ++ (TimeFormat.formatTime comment.date))
+                --, text  (" " ++ String.fromInt comment.points ++ " points")
                 {--
                 , button [ style "color" "red"
                 , class "pull-right"
@@ -227,7 +263,7 @@ viewComment comment =
                 , style "border" "none"
                 , style "background" "Transparent"
                 , style "outline" "none" ][ span [ class "glyphicon glyphicon-pencil" ] [] ]
-            --}
+                --}
             ]
         ]
         , div[][
@@ -247,6 +283,26 @@ encodeComment id username content =
         , ("username", Encode.string username)
         , ("content", Encode.string content)
     ] 
+
+encodeRate: Int -> String -> Encode.Value
+encodeRate method id =
+    Encode.object[
+        ("method", Encode.int method)
+        , ("id", Encode.string id)
+    ]
+
+rate: Int -> String -> Cmd Msg
+rate method id = 
+    Http.request
+    {
+        method = "PATCH"
+        , headers = []
+        , url = Server.url ++ "/images/rate"
+        , body = Http.jsonBody <| (encodeRate method id)
+        , expect = Http.expectWhatever RateResponse
+        , timeout = Nothing
+        , tracker = Nothing
+    }
 
 loadComments: String -> Cmd Msg
 loadComments id =

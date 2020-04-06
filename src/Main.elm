@@ -125,7 +125,7 @@ update msg model =
       routeUrl url model
 
     LogOut ->
-      ( { model | state = Ready Session.init }, Cmd.batch [ User.logout ] ) --?? bugged
+      ( { model | state = Ready Session.init }, User.logout ) --?? bugged
     
     UpdateSearch mesg -> 
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)

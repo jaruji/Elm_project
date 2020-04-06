@@ -19,8 +19,7 @@ type alias Model =
     , description: String
     , author: String
     , tags: List String
-    , upvotes: Int
-    , downvotes: Int
+    , points: Int
     , views: Int
     , uploaded: Time.Posix
   }
@@ -34,7 +33,6 @@ decodeImage =
         |> optional "description" Decode.string "No description"
         |> optional "author" Decode.string "Anonymous"
         |> optional "tags" (Decode.list Decode.string) []
-        |> required "upvotes" Decode.int
-        |> required "downvotes" Decode.int
+        |> required "points" Decode.int
         |> required "views" Decode.int
         |> required "uploaded" DecodeExtra.datetime

@@ -28,14 +28,12 @@ type alias Model =
     , tab: Tab
     , code: String
     , bio: String
-    {--
     , firstName : String
     , surname: String
     , occupation: String
     , facebook: String
     , twitter: String
     , github: String
-    --}
     , fragment: String
     , status: Status
     , posts: PostStatus
@@ -45,9 +43,9 @@ type alias Model =
 init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg, Session.UpdateSession)
 init key user fragment = 
     if fragment == user.username then
-        (Model user key Information "" "" fragment Success LoadingPost, getPosts user.username, Session.NoUpdate)
+        (Model user key Information "" "" "" "" "" "" "" "" fragment Success LoadingPost, getPosts user.username, Session.NoUpdate)
     else 
-        (Model user key Information "" "" fragment Loading LoadingPost, Cmd.batch [ loadUser fragment, getPosts fragment ], Session.NoUpdate)
+        (Model user key Information "" "" "" "" "" "" "" "" fragment Loading LoadingPost, Cmd.batch [ loadUser fragment, getPosts fragment ], Session.NoUpdate)
 
 type alias PostPreview =
   { 
@@ -81,7 +79,6 @@ type Msg
   | SwitchHistory
 -- Here are msgs needed for updating and handling all inputs
   | Bio String
-  {--
   | FirstName String
   | Surname String
   | Occupation String
@@ -173,7 +170,7 @@ update msg model =
 
     Bio string ->
         ({model | bio = string}, Cmd.none, Session.NoUpdate)
-    {--
+
     FirstName string ->
         ({model | firstName = string}, Cmd.none, Session.NoUpdate)
 
@@ -191,9 +188,9 @@ update msg model =
 
     Github string ->
         ({model | github = string}, Cmd.none, Session.NoUpdate)
-    --}
+
     UpdateSettings ->
-        (model, patch model.user.token "bio" model.bio, Session.NoUpdate)
+        (model, patch model model.user.token, Session.NoUpdate)
 
 verifyUser: User.Model -> User.Model
 verifyUser user =
@@ -309,7 +306,7 @@ view model =
                                 , div [ class "help-block" ] [ text "Update the description others see on your profile"]
                                 , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
                                     div[][
-                                        textarea [ cols 100, rows 10, id "bio", placeholder user.bio, Html.Attributes.value model.bio, onInput Bio ] []
+                                        textarea [ cols 100, rows 10, id "bio", Html.Attributes.value model.bio, onInput Bio ] []
                                     ]
                                 ] 
                                 , hr [] []
@@ -319,7 +316,7 @@ view model =
                                     div [ class "col-md-offset-2 col-md-8" ] [
                                         div[ class "form-group has-feedback" ][
                                             label [ for "name" ] [ text "First Name:" ]
-                                            , input [ id "name", type_ "text", class "form-control" ] []
+                                            , input [ id "name", type_ "text", class "form-control", Html.Attributes.value model.firstName, onInput FirstName ] []
                                         ]
                                     ]
                                 ]
@@ -327,7 +324,7 @@ view model =
                                     div [ class "col-md-offset-2 col-md-8" ] [
                                         div[ class "form-group has-feedback" ][
                                             label [ for "lastname" ] [ text "Last Name:" ]
-                                            , input [ id "lastname", type_ "text", class "form-control" ] []
+                                            , input [ id "lastname", type_ "text", class "form-control", Html.Attributes.value model.surname, onInput Surname ] []
                                         ]
                                     ]
                                 ]
@@ -335,7 +332,7 @@ view model =
                                     div [ class "col-md-offset-2 col-md-8" ] [
                                         div[ class "form-group has-feedback" ][
                                             label [ for "occ" ] [ text "Occupation:" ]
-                                            , input [ id "occ", type_ "text", class "form-control" ] []
+                                            , input [ id "occ", type_ "text", class "form-control", Html.Attributes.value model.occupation, onInput Occupation ] []
                                         ]
                                     ]
                                 ]
@@ -354,7 +351,7 @@ view model =
                                     div [ class "col-md-offset-2 col-md-8" ] [
                                         div[ class "form-group has-feedback" ][
                                             label [ for "fb" ] [ text "Link your Facebook:" ]
-                                            , input [ id "fb", type_ "text", class "form-control" ] []
+                                            , input [ id "fb", type_ "text", class "form-control", Html.Attributes.value model.facebook, onInput Facebook ] []
                                         ]
                                     ]
                                 ]
@@ -362,7 +359,7 @@ view model =
                                     div [ class "col-md-offset-2 col-md-8" ] [
                                         div[ class "form-group has-feedback" ][
                                             label [ for "tw" ] [ text "Link your Twitter:" ]
-                                            , input [ id "tw", type_ "text", class "form-control" ] []
+                                            , input [ id "tw", type_ "text", class "form-control", Html.Attributes.value model.twitter, onInput Twitter ] []
                                         ]
                                     ]
                                 ]
@@ -370,14 +367,14 @@ view model =
                                     div [ class "col-md-offset-2 col-md-8" ] [
                                         div[ class "form-group has-feedback" ][
                                             label [ for "git" ] [ text "Link your Github:" ]
-                                            , input [ id "git", type_ "text", class "form-control" ] []
+                                            , input [ id "git", type_ "text", class "form-control", Html.Attributes.value model.github, onInput Github ] []
                                         ]
                                     ]
                                 ]
                                 , hr [] []
                                 , h3 [] [ text "Update" ]
                                 , div [ class "help-block" ] [ text "Save all changes to your basic information" ]
-                                , button [ class "btn btn-primary", style "margin-bottom" "50px" ] [ text "Update Settings" ]
+                                , button [ class "btn btn-primary", style "margin-bottom" "50px", onClick UpdateSettings ] [ text "Update Settings" ]
                             ]
                         Security ->
                             div[][
@@ -434,7 +431,7 @@ view model =
                                 , button [ class "btn btn-primary", style "margin-bottom" "10px", style "margin-top" "20px" ] [ text "Change Password" ]
                                 , hr [] []
                                 , h3 [] [ text "Delete my account" ]
-                                , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account"]
+                                , div [ class "help-block" ] [ text "Press the following button if you wish to permanently delete your account. This will also delete your posts and comments!"]
                                 , button [ class "btn btn-danger", style "margin-bottom" "50px" ] [ text "Delete account" ]
                             ]   
                         History ->
@@ -457,10 +454,12 @@ viewPost post =
     , style "margin" "auto"
     , style "margin-bottom" "20px"  ][
         div[ class "media-left" ][
-            img [ src post.url
-            , class "avatar"
-            , height 100
-            , width 100 ][]
+            a [ href ("/post/" ++ post.id) ][
+                img [ src post.url
+                , class "avatar"
+                , height 100
+                , width 100 ][]
+            ]
         ]
         , div[ class "media-body well"
         , style "text-align" "left" ][
@@ -553,7 +552,6 @@ stringEncoder: String -> String -> Encode.Value
 stringEncoder key value =
     Encode.object [(key, Encode.string value)]
 
-{--
 settingsEncoder: Model -> Encode.Value
 settingsEncoder model =
     Encode.object 
@@ -561,14 +559,11 @@ settingsEncoder model =
             ("firstName", Encode.string model.firstName)
             , ("surname", Encode.string model.surname)
             , ("occupation", Encode.string model.occupation)
-            , ("age", Encode.int model.age)
-            , ("sex", Encode.string model.sex)
             , ("facebook", Encode.string model.facebook)
             , ("twitter", Encode.string model.twitter)
             , ("github", Encode.string model.github)
             , ("bio", Encode.string model.bio)
         ]
---}
 
 decodePostPreview: Decode.Decoder PostPreview
 decodePostPreview =
@@ -616,14 +611,14 @@ loadUser username =
     , tracker = Nothing
     }
 
-patch: String -> String -> String -> Cmd Msg
-patch token key value =
+patch: Model -> String -> Cmd Msg
+patch model token =
     Http.request
     {
         method = "PATCH"
         , headers = [ Http.header "auth" token ]
         , url = Server.url ++ "/account/update"
-        , body = Http.jsonBody <| (stringEncoder key value)
+        , body = Http.jsonBody <| settingsEncoder model
         , expect = Http.expectWhatever MailResponse
         , timeout = Nothing
         , tracker = Nothing
