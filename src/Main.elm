@@ -6,7 +6,8 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Url
-import Url.Parser as Parser exposing (Parser, (</>), custom, fragment, map, oneOf, s, top)
+import Url.Parser as Parser exposing (Parser, (</>), (<?>), custom, fragment, map, oneOf, s, top)
+import Url.Parser.Query as Query
 import Json.Decode as Decode
 import Json.Encode as Encode
 import FeatherIcons as Icons
@@ -357,13 +358,13 @@ viewHeader model =
             li [] [ a [ href "/", case model.page of 
               Home _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Home" ] ]
-            , li [] [ a [ href "/gallery", case model.page of 
+            , li [] [ a [ href "/gallery?page=1", case model.page of 
               Gallery _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Gallery" ] ]
             , li [] [ a [ href "/upload", case model.page of 
               Upload _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Upload" ] ]
-            , li [] [ a [ href "/users", case model.page of 
+            , li [] [ a [ href "/users?page=1", case model.page of 
               Users _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Users" ] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
@@ -428,9 +429,9 @@ routeUrl url model =
   let
     parser =
       oneOf   --rerouting based on url change!
-        [ route (s "gallery")
+        [ route (s "gallery" <?> Query.int "page")
             ( 
-              stepGallery model (Gallery.init (getUser model.state) model.key )
+              \page -> stepGallery model (Gallery.init (getUser model.state) model.key page)
             )
           , route (s "sign_up")
             ( 
@@ -448,7 +449,7 @@ routeUrl url model =
             ( 
               stepHome model (Home.init (getUser model.state) model.key)
             )
-          , route (s "profile" </> getSlug)
+          , route (s "profile" </> Parser.string)
             ( 
               case getUser model.state of
                 Just userAcc ->
@@ -460,11 +461,11 @@ routeUrl url model =
                     ({model | page = NotFound "You must be logged in to do this"}, Cmd.none)
                   )
             )
-          , route (s "users")
+          , route (s "users" <?> Query.int "page")
           (
-            stepUsers model (Users.init model.key)
+            \page -> stepUsers model (Users.init model.key page)
           )
-          , route (s "post" </> getSlug)
+          , route (s "post" </> Parser.string)
           (
             case model.state of
               Ready session ->
@@ -483,16 +484,11 @@ routeUrl url model =
           
           _ ->
             case Parser.parse parser url of
-              Just urll ->
-                urll
+              Just result ->
+                result
 
               Nothing ->
                 ({model | page = NotFound "Oops, this page doesn't exist!"}, Cmd.none)
-
-getSlug : Parser (String -> a) a
-getSlug =
-  --s "user" </> Parser.string
-  custom "slug" Just --??? dont get how this works tbh
 
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =

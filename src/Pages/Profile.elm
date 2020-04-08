@@ -98,6 +98,7 @@ type Msg
   | AvatarResponse (Result Http.Error String)
   | VerifyResponse (Result Http.Error Bool)
   | PostsResponse (Result Http.Error (List PostPreview))
+  | UpdateResponse  (Result Http.Error())
   | Response (Result Http.Error User.Model)
   | Select
   | GotFile File
@@ -158,6 +159,13 @@ update msg model =
             Err log ->
                 ({ model | posts = FailurePost }, Cmd.none, Session.NoUpdate)
 
+    UpdateResponse response ->
+        case response of
+            Ok _ -> 
+                (model, Nav.reload, Session.NoUpdate)
+            Err log ->
+                (model, Cmd.none, Session.NoUpdate)
+
     Response response ->
         case response of
             Ok user ->
@@ -190,7 +198,12 @@ update msg model =
         ({model | github = string}, Cmd.none, Session.NoUpdate)
 
     UpdateSettings ->
-        (model, patch model model.user.token, Session.NoUpdate)
+        if model.bio == "" || model.firstName == "" || model.surname == "" 
+        || model.occupation == "" || model.facebook == "" || model.twitter == "" 
+        || model.github == "" then
+            (model, Cmd.none, Session.NoUpdate)
+        else
+            (model, patch model model.user.token, Session.NoUpdate)
 
 verifyUser: User.Model -> User.Model
 verifyUser user =
@@ -258,7 +271,8 @@ view model =
                             ]
                         ]
                         , div [ style "font-style" "italic" ] [ text user.bio ]
-                        , if user.token /= "Hidden" then
+                    ]
+                    , if user.token /= "Hidden" then
                             ul [ class "nav nav-pills" ][
                                 li [][ button [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
                                 , li [][ button [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchSettings ] [ text "Settings"] ]
@@ -267,7 +281,6 @@ view model =
                             ]
                         else
                             text ""
-                    ]
                     , case model.tab of
                         Information ->
                             div[ class "list-group" ][
@@ -619,7 +632,7 @@ patch model token =
         , headers = [ Http.header "auth" token ]
         , url = Server.url ++ "/account/update"
         , body = Http.jsonBody <| settingsEncoder model
-        , expect = Http.expectWhatever MailResponse
+        , expect = Http.expectWhatever UpdateResponse
         , timeout = Nothing
         , tracker = Nothing
     }

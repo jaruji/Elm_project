@@ -3,6 +3,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Browser.Navigation as Nav
+import Browser.Dom as Dom
+import Task
 import Http
 import User
 import Server
@@ -17,11 +19,20 @@ import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 --search bar with filtering on input ;)
 --pagination might be necessary
 
+pageSize = 25
+
 type alias Model =
   {  
     key: Nav.Key
     , status: Status
     , query: String
+    , page: Int
+  }
+
+type alias UserPreviewContainer =
+  {
+    total: Int
+    , users: List UserPreview
   }
 
 type alias UserPreview =
@@ -33,17 +44,24 @@ type alias UserPreview =
 
 type Status
   = Loading
-  | Success (List UserPreview)
+  | Success (UserPreviewContainer)
   | Failure String
 
 type Msg
   = Test
-  | Response (Result Http.Error (List UserPreview))
+  | Response (Result Http.Error (UserPreviewContainer))
   | Query String
+  | Next
+  | Previous
+  | Empty
 
-init: Nav.Key -> (Model, Cmd Msg)
-init key =
-    (Model key Loading "", getUsers "")
+init: Nav.Key -> Maybe Int -> (Model, Cmd Msg)
+init key page =
+    case page of
+        Just int ->
+            (Model key Loading "" int, getUsers "" int)
+        Nothing ->
+            (Model key Loading "" 1, getUsers "" 1)
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -54,16 +72,33 @@ update msg model =
 
     Response response ->
         case response of
-            Ok users ->
-                if List.isEmpty users == True then
-                    ({ model | status = Failure "Query returned no results" }, Cmd.none)
-                else
-                    ({ model | status = Success users }, Cmd.none)
+            Ok container ->
+                let
+                    users = container.users
+                in
+                    if List.isEmpty users == True then
+                        ({ model | status = Failure "Query returned no results" }, Cmd.none)
+                    else
+                        ({ model | status = Success container }, Cmd.none)
             Err log ->
                 ({ model | status = Failure "Connection error"}, Cmd.none)
 
     Query query ->
-        ({ model | query = query, status = Loading }, getUsers query)
+        ({ model | query = query, status = Loading }, getUsers query model.page )
+
+    Empty ->
+        (model, Cmd.none)
+
+    Next ->
+        (model, Cmd.batch [ Nav.pushUrl model.key ("/users?page=" ++ String.fromInt(model.page + 1))
+        , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
+
+    Previous ->
+        if model.page /= 1 then
+            (model, Cmd.batch [ Nav.pushUrl model.key ("/users?page=" ++ String.fromInt(model.page - 1))
+            , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
+        else
+            (model, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -91,19 +126,31 @@ view model =
                     h4[][ text "Sending the query..." ]
                     , Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
                 ]
-            Success users ->
-                div[][
-                    div [ class "alert alert-success"
-                    , style "margin" "auto"
-                    , style "width" "60%"
-                    , style "margin-bottom" "10px" ][
-                        text ("Query returned " ++ String.fromInt(List.length users) ++ " results") 
+            Success container ->
+                let
+                    users = container.users
+                in
+                    div[][
+                        div [ class "alert alert-success"
+                        , style "margin" "auto"
+                        , style "width" "60%"
+                        , style "margin-bottom" "10px" ][
+                            text ("Query returned " ++ String.fromInt(container.total) ++ " results") 
+                        ]
+                        , div[ class "panel panel-default"
+                        , style "margin" "auto"
+                        , style "border" "none" ]
+                            (List.map showPreview users)
+                        , div [ style "margin-bottom" "50px", style "margin-top" "20px" ] [
+                            div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
+                            , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
+                                span [ class "glyphicon glyphicon-chevron-left" ] [] 
+                            ]
+                            , button [ class "btn btn-primary", onClick Next, if model.page == ceiling ( toFloat container.total / toFloat pageSize ) then disabled True else disabled False ][
+                                span [ class "glyphicon glyphicon-chevron-right" ] []
+                            ]
+                        ]
                     ]
-                    , div[ class "panel panel-default"
-                    , style "margin" "auto"
-                    , style "border" "none" ]
-                        (List.map showPreview users)
-                ]
             Failure error ->
                 div [ class "alert alert-warning"
                 , style "margin" "auto"
@@ -138,6 +185,12 @@ showPreview user =
      ] 
     ] 
 
+userPreviewContainerDecoder: Decode.Decoder UserPreviewContainer
+userPreviewContainerDecoder =
+    Decode.succeed UserPreviewContainer
+        |> required "total" Decode.int
+        |> required "users" (Decode.list userPreviewDecoder)
+
 userPreviewDecoder: Decode.Decoder UserPreview
 userPreviewDecoder =
     Decode.succeed UserPreview
@@ -145,19 +198,22 @@ userPreviewDecoder =
         |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
         |> required "verif" Decode.bool
 
-encodeQuery: String -> Encode.Value
-encodeQuery query =
+encodeQuery: String -> Int -> Encode.Value
+encodeQuery query page =
     Encode.object 
-        [("query", Encode.string query)]
+        [
+            ("query", Encode.string query)
+            , ("page", Encode.int page)
+        ]
 
-getUsers: String -> Cmd Msg
-getUsers query =
+getUsers: String -> Int -> Cmd Msg
+getUsers query page =
     Http.request
     { method = "POST"
     , headers = []
     , url = Server.url ++ "/accounts/query"
-    , body = Http.jsonBody <| encodeQuery query
-    , expect = Http.expectJson Response (Decode.list userPreviewDecoder)
+    , body = Http.jsonBody <| encodeQuery query page
+    , expect = Http.expectJson Response userPreviewContainerDecoder
     , timeout = Nothing
     , tracker = Nothing
     }

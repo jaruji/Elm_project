@@ -2,6 +2,7 @@ module Pages.Gallery exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
+import Browser.Dom as Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -11,13 +12,24 @@ import Json.Encode as Encode
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import FeatherIcons as Icons
+import Task
 import User
 import Image
 import Server
 
+pageSize = 9
+
 type alias Model = 
   {
     status: Status
+    , page: Int
+    , key: Nav.Key
+  }
+
+type alias ImagePreviewContainer =
+  {
+    total: Int
+    , images: List ImagePreview
   }
 
 type alias ImagePreview =
@@ -33,24 +45,34 @@ type alias ImagePreview =
 type Status
     = Loading
     | Failure
-    | Success (List ImagePreview)
-
+    | Success (ImagePreviewContainer)
 
 type Msg
-    = Response (Result Http.Error (List ImagePreview))
+    = Response (Result Http.Error (ImagePreviewContainer))
     | SortNewest
     | SortPopular
     | SortTop
+    | Next
+    | Previous
+    | Empty
 
 
 
-init :  Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
-init user key =
-    ( Model Loading, post "title" 1)
+init :  Maybe User.Model -> Nav.Key -> Maybe Int -> (Model, Cmd Msg)
+init user key fragment =
+  case fragment of
+    Just int ->
+      ( Model Loading int key, post "title" 1 int)
+    Nothing ->
+      ( Model Loading 1 key, post "title" 1 1)
+
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
+        Empty ->
+          (model, Cmd.none)
+
         Response response ->
             case response of
                 Ok imageUrl ->
@@ -60,14 +82,24 @@ update msg model =
                     ({ model | status = Failure }, Cmd.none )
 
         SortNewest ->
-          ({ model | status = Loading }, post "uploaded" -1)
+          ({ model | status = Loading }, post "uploaded" -1 1)
 
         SortPopular ->
-          ({ model | status = Loading }, post "views" -1)
+          ({ model | status = Loading }, post "views" -1 1)
 
         SortTop ->
-          ({ model | status = Loading }, post "upvotes" -1)
+          ({ model | status = Loading }, post "points" -1 1)
 
+        Next ->
+          (model, Cmd.batch [ Nav.pushUrl model.key ("/gallery?page=" ++ String.fromInt(model.page + 1))
+          , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
+
+        Previous ->
+          if model.page /= 1 then
+            (model, Cmd.batch [ Nav.pushUrl model.key ("/gallery?page=" ++ String.fromInt(model.page - 1))
+            , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
+          else
+            (model, Cmd.none)
 
 view : Model -> Html Msg
 view model =
@@ -110,20 +142,32 @@ view model =
             h4 [] [ text "Gallery failed to load" ]
           ]
 
-        Success images ->
-          div[][
-            if List.isEmpty images then
-              div [ class "alert alert-warning"
-              , style "margin" "auto"
-              , style "width" "50%"
-              , style "margin-top" "50px" ][
-                text "There are no images in the gallery"
-              ]
-            else 
-              div [ class "panel panel-default"
-              , style "border" "none" ]
-                (List.map showPreview images)
-          ]
+        Success container ->
+          let 
+            images = container.images
+          in
+            div[][
+              if List.isEmpty images then
+                div [ class "alert alert-warning"
+                , style "margin" "auto"
+                , style "width" "50%"
+                , style "margin-top" "50px" ][
+                  text "There are no images in the gallery"
+                ]
+              else 
+                div [ class "panel panel-default"
+                , style "border" "none" ]
+                  (List.map showPreview images)
+                , div [ style "margin-bottom" "50px", style "margin-top" "20px" ] [
+                  div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
+                  , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
+                    span [ class "glyphicon glyphicon-chevron-left" ] [] 
+                  ]
+                  , button [ class "btn btn-primary", onClick Next, if model.page == ceiling ( toFloat container.total / toFloat pageSize ) then disabled True else disabled False ][
+                    span [ class "glyphicon glyphicon-chevron-right" ] []
+                  ]
+                ]
+            ]
   ]
 
 showPreview: ImagePreview -> Html Msg
@@ -163,6 +207,12 @@ trimString string =
   else
     string
 
+imagePreviewContainerDecoder: Decode.Decoder ImagePreviewContainer
+imagePreviewContainerDecoder =
+  Decode.succeed ImagePreviewContainer
+    |> required "total" Decode.int
+    |> required "images" (Decode.list imagePreviewDecoder)
+
 imagePreviewDecoder: Decode.Decoder ImagePreview
 imagePreviewDecoder =
     Decode.succeed ImagePreview
@@ -173,15 +223,19 @@ imagePreviewDecoder =
         |> required "points" Decode.int
         |> required "views" Decode.int
 
-encodeQuery: String -> Int -> Encode.Value
-encodeQuery query order =
-  Encode.object[(query, Encode.int order)]
+encodeQuery: String -> Int -> Int -> Encode.Value
+encodeQuery query order page =
+  Encode.object
+    [
+      (query, Encode.int order)
+      , ("page", Encode.int page)
+    ]
 
-post : String -> Int -> Cmd Msg
-post query order =
+post : String -> Int -> Int -> Cmd Msg
+post query order page =
     Http.post
       { 
         url = Server.url ++ "/images/get"
-        , body = Http.jsonBody <| encodeQuery query order
-        , expect = Http.expectJson Response (Decode.list imagePreviewDecoder)
+        , body = Http.jsonBody <| encodeQuery query order page
+        , expect = Http.expectJson Response (imagePreviewContainerDecoder)
       }

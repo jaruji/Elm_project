@@ -272,20 +272,36 @@ async function routes(fastify) {
 
     fastify.post('/accounts/query', async(req, res) => {
         let query = req.body.query 
+        let page = req.body.page
+        let pageSize = 25
+        let offset = pageSize * (page - 1)
         const db = client.db('database')
-        var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
+        var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
-        res.send(output)
+        let obj = new Object()
+        obj.total = await db.collection('accounts').countDocuments({"username": {$regex: query, $options: 'i'}})
+        obj.users = output
+        res.send(obj)
     })
     
     fastify.post('/images/get', async (req, res) => { 
+        //somehow need to send back the total number of pages so I can map the buttons
         const db = client.db('database')
-        var cursor = await db.collection('images').find().sort(req.body).toArray()
+        let page = req.body.page
+        let pageSize = 9
+        let offset = pageSize * (page - 1)
+        delete req.body.page
+        var cursor = await db.collection('images').find().sort(req.body).skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
         output.map(function(key){
             key["file"] = "http://localhost:3000/img/" + key.file
+            //key["count"] = count
         })
-        res.send(output)
+        let obj = new Object()
+        obj.total = await db.collection('images').countDocuments()
+        obj.images = output
+        //res.header = await db.collection('images').count()
+        res.send(obj)
     })
 
     fastify.post('/images/id', async (req, res) => {  //image database
