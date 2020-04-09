@@ -30,6 +30,21 @@ type alias Model =
     , registered: Time.Posix
   }
 
+type alias Preview =
+  {
+    username: String
+    , avatar: String
+    , verif: Bool
+  }
+
+decodePreview: Decode.Decoder Preview
+decodePreview =
+    Decode.succeed Preview
+        |> required "username" Decode.string
+        |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
+        |> required "verif" Decode.bool
+
+
 --decode logged in user
 decodeUser: Decode.Decoder Model
 decodeUser =
@@ -66,6 +81,32 @@ decodeUserNotLoggedIn =
         |> required "github" (nullable Decode.string)
         |> hardcoded "Hidden"
         |> required "registeredAt" DecodeExtra.datetime
+
+showPreview: Preview -> Html msg
+showPreview user =
+    a [ href ("profile/" ++ user.username)
+    , style "display" "inline-block"
+    , class "preview"
+    , style "height" "250px"
+    , style "width" "200px" ][
+        img [ 
+        src user.avatar
+        , class "previewAvatar"
+        , height 200
+        , width 200
+        , style "border-radius" "50%"
+        , style "border" "5px solid white"
+        , attribute "user-drag" "none"
+        , attribute "user-select" "none" ][]
+        , div [] [
+            text user.username
+            , if user.verif == True then 
+                span [ class "glyphicon glyphicon-ok-circle", style "color" "green", style "margin-left" "5px" ][]
+            else
+                span [ class "glyphicon glyphicon-remove-circle", style "color" "red", style "margin-left" "5px" ] []
+
+        ] 
+    ] 
 
 
 port storeToken : Maybe String -> Cmd msg

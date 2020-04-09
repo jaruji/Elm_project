@@ -180,7 +180,7 @@ async function routes(fastify) {
         //get preview of user's posts
         let author = req.body.username
         const db = client.db('database')
-        var cursor = await db.collection('images').find({author: author}).sort({uploaded: -1}).toArray()
+        var cursor = await db.collection('images').find({author: author}).sort({uploaded: -1}).limit(req.body.limit).toArray()
         let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, views, author, ...rest}) => rest)
         output.map(function(key){
             key["file"] = "http://localhost:3000/img/" + key.file
@@ -277,7 +277,7 @@ async function routes(fastify) {
         let offset = pageSize * (page - 1)
         const db = client.db('database')
         var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().skip(offset).limit(pageSize).toArray()
-        let output = cursor.map(({_id, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
+        let output = cursor.map(({_id, secretKey, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
         let obj = new Object()
         obj.total = await db.collection('accounts').countDocuments({"username": {$regex: query, $options: 'i'}})
         obj.users = output
@@ -300,7 +300,6 @@ async function routes(fastify) {
         let obj = new Object()
         obj.total = await db.collection('images').countDocuments()
         obj.images = output
-        //res.header = await db.collection('images').count()
         res.send(obj)
     })
 

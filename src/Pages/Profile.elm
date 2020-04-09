@@ -21,6 +21,8 @@ import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Time
 import TimeFormat
 
+postCount = 5
+
 type alias Model =
   {  
     user: User.Model
@@ -43,9 +45,9 @@ type alias Model =
 init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg, Session.UpdateSession)
 init key user fragment = 
     if fragment == user.username then
-        (Model user key Information "" "" "" "" "" "" "" "" fragment Success LoadingPost, getPosts user.username, Session.NoUpdate)
+        (Model user key Information "" "" "" "" "" "" "" "" fragment Success LoadingPost, getPosts user.username postCount, Session.NoUpdate)
     else 
-        (Model user key Information "" "" "" "" "" "" "" "" fragment Loading LoadingPost, Cmd.batch [ loadUser fragment, getPosts fragment ], Session.NoUpdate)
+        (Model user key Information "" "" "" "" "" "" "" "" fragment Loading LoadingPost, Cmd.batch [ loadUser fragment, getPosts fragment postCount ], Session.NoUpdate)
 
 type alias PostPreview =
   { 
@@ -102,6 +104,7 @@ type Msg
   | Response (Result Http.Error User.Model)
   | Select
   | GotFile File
+  | LoadMore
 
 type Tab
   = Information
@@ -205,6 +208,9 @@ update msg model =
         else
             (model, patch model model.user.token, Session.NoUpdate)
 
+    LoadMore ->
+        (model, getPosts model.user.username 0, Session.NoUpdate)
+
 verifyUser: User.Model -> User.Model
 verifyUser user =
     { user | verif = True }
@@ -307,7 +313,14 @@ view model =
                                         if List.isEmpty posts == True then
                                             div [ style "font-style" "italic" ] [ text "This user has no posts" ]
                                         else
-                                            div [] (List.map viewPost posts)
+                                            div [] [
+                                                div [] (List.map viewPost posts)
+                                                , if List.length posts == postCount then
+                                                    button [ class "btn btn-primary"
+                                                    , onClick LoadMore ] [ text "Load more" ]
+                                                else
+                                                    text ""
+                                            ]
                             ]
                         Settings ->
                             div [][ 
@@ -586,15 +599,23 @@ decodePostPreview =
         |> required "id" Decode.string
         |> required "file" Decode.string 
 
+getPostsEncoder: String -> Int -> Encode.Value
+getPostsEncoder username limit =
+    Encode.object
+    [
+        ("username", Encode.string username)
+        ,("limit", Encode.int limit)
+    ]
 
-getPosts: String -> Cmd Msg
-getPosts username =
+
+getPosts: String -> Int -> Cmd Msg
+getPosts username limit =
     Http.request
     {
         method = "POST"
         , headers = []
         , url = Server.url ++ "/account/posts"
-        , body = Http.jsonBody <| (stringEncoder "username" username)
+        , body = Http.jsonBody <| getPostsEncoder username limit
         , expect = Http.expectJson PostsResponse (Decode.list decodePostPreview)
         , timeout = Nothing
         , tracker = Nothing

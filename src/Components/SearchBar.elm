@@ -1,6 +1,4 @@
 module Components.SearchBar exposing (..)
---module HomePage exposing (main)
---import Keyboard.Event as Keyboard
 import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
@@ -10,18 +8,9 @@ import Http
 import Json.Decode as Decode
 import FeatherIcons as Icons
 
-
-{-
-dropdown(autocomplete), escape cancels dropdown
-, searchHistory when first focused
--}
-
---Model
-
 type alias Model =
   {
     searchValue: String
-    , finalValue: String
     , key: Nav.Key
   }
 
@@ -29,7 +18,6 @@ init : Nav.Key -> ( Model, Cmd Msg)
 init key =
   ({
     searchValue = ""
-    , finalValue = ""
     , key = key
   }, Cmd.none)
 
@@ -37,7 +25,6 @@ init key =
 
 type Msg
     = UpdateValue String
-    | Submit
     | KeyHandler Int
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -45,22 +32,16 @@ update msg model =
   case msg of
     UpdateValue val ->
       ({model | searchValue = val}, Cmd.none)
-    Submit ->
-      ({model | finalValue = model.searchValue
-      , searchValue = ""
-      }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
     KeyHandler key ->
       case key of
         13 ->                       --on Enter down
-          ({model | finalValue = model.searchValue
-          , searchValue = ""
-          }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
+          case model.searchValue of
+            "" ->
+              (model, Cmd.none)
+            _ ->
+              ({ model | searchValue = "" }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
         _ ->
-          ( model, Cmd.none )
-
-getValue : Model -> String
-getValue =
-  .finalValue
+          (model, Cmd.none)
 
 keyPress : (Int -> msg) -> Attribute msg
 keyPress tagger =
@@ -80,8 +61,7 @@ view model =
       , keyPress KeyHandler ] []
       , span[ style "margin-top" "10px"
             , style "color" "grey"
-            , class "glyphicon glyphicon-search form-control-feedback"
-            , onClick Submit ][]
+            , class "glyphicon glyphicon-search form-control-feedback" ][]
       , datalist [ id "options" ][ text "Ahoj", text "Testing", text "Waduhek"]
       --, onFocus ()
       --, button [ class "btn-primary", onClick Submit ][ text "Search" ]

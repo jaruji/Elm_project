@@ -32,14 +32,7 @@ type alias Model =
 type alias UserPreviewContainer =
   {
     total: Int
-    , users: List UserPreview
-  }
-
-type alias UserPreview =
-  {
-    username: String
-    , avatar: String
-    , verif: Bool
+    , users: List User.Preview
   }
 
 type Status
@@ -140,7 +133,7 @@ view model =
                         , div[ class "panel panel-default"
                         , style "margin" "auto"
                         , style "border" "none" ]
-                            (List.map showPreview users)
+                            (List.map User.showPreview users)
                         , div [ style "margin-bottom" "50px", style "margin-top" "20px" ] [
                             div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
                             , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
@@ -159,44 +152,11 @@ view model =
                 ]
     ]
 
-showPreview: UserPreview -> Html Msg
-showPreview user =
-    a [ href ("profile/" ++ user.username)
-    , style "display" "inline-block"
-    , class "preview"
-    , style "height" "250px"
-    , style "width" "200px" ][
-        img [ 
-        src user.avatar
-        , class "previewAvatar"
-        , height 200
-        , width 200
-        , style "border-radius" "50%"
-        , style "border" "5px solid white"
-        , attribute "user-drag" "none"
-        , attribute "user-select" "none" ][]
-        , div [] [
-            text user.username
-            , if user.verif == True then 
-                span [ class "glyphicon glyphicon-ok-circle", style "color" "green", style "margin-left" "5px" ][]
-            else
-                span [ class "glyphicon glyphicon-remove-circle", style "color" "red", style "margin-left" "5px" ] []
-
-     ] 
-    ] 
-
 userPreviewContainerDecoder: Decode.Decoder UserPreviewContainer
 userPreviewContainerDecoder =
     Decode.succeed UserPreviewContainer
         |> required "total" Decode.int
-        |> required "users" (Decode.list userPreviewDecoder)
-
-userPreviewDecoder: Decode.Decoder UserPreview
-userPreviewDecoder =
-    Decode.succeed UserPreview
-        |> required "username" Decode.string
-        |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
-        |> required "verif" Decode.bool
+        |> required "users" (Decode.list User.decodePreview)
 
 encodeQuery: String -> Int -> Encode.Value
 encodeQuery query page =

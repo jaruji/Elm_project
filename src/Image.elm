@@ -24,6 +24,27 @@ type alias Model =
     , uploaded: Time.Posix
   }
 
+type alias Preview =
+  {
+    id: String
+    , title: String
+    , url: String
+    , author: String
+    , points: Int
+    , views: Int
+  }
+
+
+decodePreview: Decode.Decoder Preview
+decodePreview =
+    Decode.succeed Preview
+        |> required "id" Decode.string
+        |> required "title" Decode.string
+        |> required "file" Decode.string
+        |> optional "author" Decode.string "Anonymous"
+        |> required "points" Decode.int
+        |> required "views" Decode.int
+
 decodeImage: Decode.Decoder Model
 decodeImage =
     Decode.succeed Model

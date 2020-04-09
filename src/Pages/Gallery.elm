@@ -3,6 +3,7 @@ module Pages.Gallery exposing (..)
 import Browser
 import Browser.Navigation as Nav
 import Browser.Dom as Dom
+import Url.Builder as Url
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -24,23 +25,19 @@ type alias Model =
     status: Status
     , page: Int
     , key: Nav.Key
+    , sort: Sort
   }
 
 type alias ImagePreviewContainer =
   {
     total: Int
-    , images: List ImagePreview
+    , images: List Image.Preview
   }
 
-type alias ImagePreview =
-  {
-    id: String
-    , title: String
-    , url: String
-    , author: String
-    , points: Int
-    , views: Int
-  }
+type Sort 
+  = Newest
+  | MostPopular
+  | TopRated
 
 type Status
     = Loading
@@ -62,9 +59,9 @@ init :  Maybe User.Model -> Nav.Key -> Maybe Int -> (Model, Cmd Msg)
 init user key fragment =
   case fragment of
     Just int ->
-      ( Model Loading int key, post "title" 1 int)
+      ( Model Loading int key Newest, post Newest int)
     Nothing ->
-      ( Model Loading 1 key, post "title" 1 1)
+      ( Model Loading 1 key Newest, post Newest 1)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -82,21 +79,21 @@ update msg model =
                     ({ model | status = Failure }, Cmd.none )
 
         SortNewest ->
-          ({ model | status = Loading }, post "uploaded" -1 1)
+          ({ model | status = Loading, sort = Newest }, post Newest 1)
 
         SortPopular ->
-          ({ model | status = Loading }, post "views" -1 1)
+          ({ model | status = Loading, sort = MostPopular }, post MostPopular 1)
 
         SortTop ->
-          ({ model | status = Loading }, post "points" -1 1)
+          ({ model | status = Loading, sort = TopRated }, post TopRated 1)
 
         Next ->
-          (model, Cmd.batch [ Nav.pushUrl model.key ("/gallery?page=" ++ String.fromInt(model.page + 1))
+          ({ model | page = model.page + 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page + 1) ])
           , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
 
         Previous ->
           if model.page /= 1 then
-            (model, Cmd.batch [ Nav.pushUrl model.key ("/gallery?page=" ++ String.fromInt(model.page - 1))
+            ({ model | page = model.page - 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page - 1) ])
             , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
           else
             (model, Cmd.none)
@@ -115,16 +112,32 @@ view model =
       , style "margin-right" "10px"
       , style "background" "Transparent"
       , style "outline" "none"
-      , style "border" "none" ][ text "Newest" ]
+      , style "border" "none"
+      , if model.sort == Newest then style "text-decoration" "underline"
+      else style "" "" ][ text "Newest" ]
       , button[ onClick SortPopular
       , style "margin-right" "10px"
       , style "background" "Transparent"
       , style "outline" "none"
-      , style "border" "none" ] [ text "Most Popular" ]
+      , style "border" "none"
+      , if model.sort == MostPopular then style "text-decoration" "underline"
+      else style "" ""  ] [ text "Most Popular" ]
       , button[ onClick SortTop
       , style "background" "Transparent"
       , style "outline" "none"
-      , style "border" "none" ] [ text "Top Rated"]
+      , style "border" "none"
+      , if model.sort == TopRated then style "text-decoration" "underline"
+      else style "" ""  ] [ text "Top Rated"]
+    ]
+    , div [ class "help-block", style "margin-top" "20px" ] [
+      text "Currently sorting by: "
+      , case model.sort of
+        Newest ->
+          text "Newest first"
+        TopRated ->
+          text "Top rated first"
+        MostPopular ->
+          text "Most popular first"
     ]
     , case model.status of
         Loading ->
@@ -170,7 +183,7 @@ view model =
             ]
   ]
 
-showPreview: ImagePreview -> Html Msg
+showPreview: Image.Preview -> Html Msg
 showPreview image =
   div [ style "display" "inline-block"
   , class "jumbotron"
@@ -196,6 +209,9 @@ showPreview image =
             text "Could not display image" 
           ]
         ]
+        , div [ class "help-block" ][
+          text ("views: " ++ String.fromInt image.views)
+        ]
       ]
     ]   
   ]
@@ -211,31 +227,27 @@ imagePreviewContainerDecoder: Decode.Decoder ImagePreviewContainer
 imagePreviewContainerDecoder =
   Decode.succeed ImagePreviewContainer
     |> required "total" Decode.int
-    |> required "images" (Decode.list imagePreviewDecoder)
+    |> required "images" (Decode.list Image.decodePreview)
 
-imagePreviewDecoder: Decode.Decoder ImagePreview
-imagePreviewDecoder =
-    Decode.succeed ImagePreview
-        |> required "id" Decode.string
-        |> required "title" Decode.string
-        |> required "file" Decode.string
-        |> optional "author" Decode.string "Anonymous"
-        |> required "points" Decode.int
-        |> required "views" Decode.int
-
-encodeQuery: String -> Int -> Int -> Encode.Value
-encodeQuery query order page =
+encodeQuery: Sort -> Int -> Encode.Value
+encodeQuery sort page =
   Encode.object
     [
-      (query, Encode.int order)
+      case sort of
+        Newest ->
+          ("uploaded", Encode.int -1)
+        MostPopular ->
+          ("views", Encode.int -1)
+        TopRated ->
+          ("points", Encode.int -1)
       , ("page", Encode.int page)
     ]
 
-post : String -> Int -> Int -> Cmd Msg
-post query order page =
+post : Sort -> Int -> Cmd Msg
+post sort page =
     Http.post
       { 
         url = Server.url ++ "/images/get"
-        , body = Http.jsonBody <| encodeQuery query order page
+        , body = Http.jsonBody <| encodeQuery sort page
         , expect = Http.expectJson Response (imagePreviewContainerDecoder)
       }

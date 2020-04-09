@@ -19,6 +19,7 @@ import Pages.Home as Home
 import Pages.Profile as Profile
 import Pages.Users as Users
 import Pages.Post as Post
+import Pages.Results as Results
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
@@ -69,6 +70,7 @@ type Page
   | Profile Profile.Model
   | Users Users.Model
   | Post Post.Model
+  | Results Results.Model
 
 type State
   = Ready Session.Session
@@ -88,6 +90,7 @@ type Msg
   | UsersMsg Users.Msg
   | UpdateSearch Search.Msg
   | PostMsg Post.Msg
+  | ResultsMsg Results.Msg
   | LogOut
   | Response (Result Http.Error User.Model)
 
@@ -178,6 +181,11 @@ update msg model =
         Post post -> stepPost model (Post.update mesg post)
         _ -> (model, Cmd.none)
 
+    ResultsMsg mesg ->
+      case model.page of
+        Results results -> stepResults model (Results.update mesg results)
+        _ -> (model, Cmd.none)
+
     Response response ->
       case response of
         Ok user ->
@@ -185,6 +193,10 @@ update msg model =
           --page refresh without calling init!
         Err log ->
           ({ model | state = Failure}, Cmd.none)
+
+stepResults: Model -> (Results.Model, Cmd Results.Msg) -> (Model, Cmd Msg)
+stepResults model (results, cmd) =
+  ({ model | page = Results results }, Cmd.map ResultsMsg cmd)
 
 stepPost: Model -> (Post.Model, Cmd Post.Msg) -> (Model,Cmd Msg)
 stepPost model (post, cmd) =
@@ -339,6 +351,16 @@ view model =
             , viewFooter
           ]
         }
+      Results results -> 
+        { title = "Search results"
+          , body = [
+            viewHeader model
+            , div[class "body"][
+              Results.view results |> Html.map ResultsMsg
+            ]
+            , viewFooter
+          ]
+        }
 
 viewImage : String -> Int -> Int -> Html msg
 viewImage path w h =
@@ -429,6 +451,7 @@ routeUrl url model =
   let
     parser =
       oneOf   --rerouting based on url change!
+        --TODO : add sorting to url!
         [ route (s "gallery" <?> Query.int "page")
             ( 
               \page -> stepGallery model (Gallery.init (getUser model.state) model.key page)
@@ -472,6 +495,10 @@ routeUrl url model =
                 (\id -> stepPost model (Post.init model.key session.user id))
               _ ->
                 (\id -> (model, Cmd.none))
+          )
+          , route (s "search" <?> Query.string "q")
+          (
+            \q -> stepResults model (Results.init q)
           )
         ]
   in 
