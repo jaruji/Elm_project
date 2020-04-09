@@ -380,7 +380,7 @@ viewHeader model =
             li [] [ a [ href "/", case model.page of 
               Home _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Home" ] ]
-            , li [] [ a [ href "/gallery?page=1", case model.page of 
+            , li [] [ a [ href "/gallery?page=1&sort=newest", case model.page of 
               Gallery _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Gallery" ] ]
             , li [] [ a [ href "/upload", case model.page of 
@@ -452,9 +452,9 @@ routeUrl url model =
     parser =
       oneOf   --rerouting based on url change!
         --TODO : add sorting to url!
-        [ route (s "gallery" <?> Query.int "page")
+        [ route (s "gallery" <?> Query.int "page" <?> Query.string "sort")
             ( 
-              \page -> stepGallery model (Gallery.init (getUser model.state) model.key page)
+              \page sort -> stepGallery model (Gallery.init (getUser model.state) model.key page sort)
             )
           , route (s "sign_up")
             ( 

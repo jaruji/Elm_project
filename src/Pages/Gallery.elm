@@ -25,7 +25,7 @@ type alias Model =
     status: Status
     , page: Int
     , key: Nav.Key
-    , sort: Sort
+    , sort: String
   }
 
 type alias ImagePreviewContainer =
@@ -33,11 +33,6 @@ type alias ImagePreviewContainer =
     total: Int
     , images: List Image.Preview
   }
-
-type Sort 
-  = Newest
-  | MostPopular
-  | TopRated
 
 type Status
     = Loading
@@ -55,13 +50,18 @@ type Msg
 
 
 
-init :  Maybe User.Model -> Nav.Key -> Maybe Int -> (Model, Cmd Msg)
-init user key fragment =
-  case fragment of
+init :  Maybe User.Model -> Nav.Key -> Maybe Int -> Maybe String -> (Model, Cmd Msg)
+init user key page sort =
+  case page of
     Just int ->
-      ( Model Loading int key Newest, post Newest int)
+      case sort of
+        Just string ->
+          (Model Loading int key string, post string int)
+        _ ->
+          (Model Loading int key "newest", post "newest" int)
+
     Nothing ->
-      ( Model Loading 1 key Newest, post Newest 1)
+      ( Model Loading 1 key "newest", post "newest" 1)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -79,21 +79,21 @@ update msg model =
                     ({ model | status = Failure }, Cmd.none )
 
         SortNewest ->
-          ({ model | status = Loading, sort = Newest }, post Newest 1)
+          ({ model | status = Loading, sort = "newest" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=newest") )
 
         SortPopular ->
-          ({ model | status = Loading, sort = MostPopular }, post MostPopular 1)
+          ({ model | status = Loading, sort = "popular" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=popular") )
 
         SortTop ->
-          ({ model | status = Loading, sort = TopRated }, post TopRated 1)
+          ({ model | status = Loading, sort = "rating" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=rating") )
 
         Next ->
-          ({ model | page = model.page + 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page + 1) ])
+          ({ model | page = model.page + 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page + 1), Url.string "sort" model.sort ])
           , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
 
         Previous ->
           if model.page /= 1 then
-            ({ model | page = model.page - 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page - 1) ])
+            ({ model | page = model.page - 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page - 1), Url.string "sort" model.sort ])
             , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
           else
             (model, Cmd.none)
@@ -113,31 +113,33 @@ view model =
       , style "background" "Transparent"
       , style "outline" "none"
       , style "border" "none"
-      , if model.sort == Newest then style "text-decoration" "underline"
+      , if model.sort == "newest" then style "text-decoration" "underline"
       else style "" "" ][ text "Newest" ]
       , button[ onClick SortPopular
       , style "margin-right" "10px"
       , style "background" "Transparent"
       , style "outline" "none"
       , style "border" "none"
-      , if model.sort == MostPopular then style "text-decoration" "underline"
+      , if model.sort == "popular" then style "text-decoration" "underline"
       else style "" ""  ] [ text "Most Popular" ]
       , button[ onClick SortTop
       , style "background" "Transparent"
       , style "outline" "none"
       , style "border" "none"
-      , if model.sort == TopRated then style "text-decoration" "underline"
+      , if model.sort == "rating" then style "text-decoration" "underline"
       else style "" ""  ] [ text "Top Rated"]
     ]
     , div [ class "help-block", style "margin-top" "20px" ] [
       text "Currently sorting by: "
       , case model.sort of
-        Newest ->
-          text "Newest first"
-        TopRated ->
+        "rating" ->
           text "Top rated first"
-        MostPopular ->
+        "popular" ->
           text "Most popular first"
+        "newest" ->
+          text "Newest first"
+        _ ->
+          text "Invalid sort method"
     ]
     , case model.status of
         Loading ->
@@ -229,21 +231,21 @@ imagePreviewContainerDecoder =
     |> required "total" Decode.int
     |> required "images" (Decode.list Image.decodePreview)
 
-encodeQuery: Sort -> Int -> Encode.Value
+encodeQuery: String -> Int -> Encode.Value
 encodeQuery sort page =
   Encode.object
     [
       case sort of
-        Newest ->
-          ("uploaded", Encode.int -1)
-        MostPopular ->
+        "popular" ->
           ("views", Encode.int -1)
-        TopRated ->
+        "rating" ->
           ("points", Encode.int -1)
+        _ ->
+          ("uploaded", Encode.int -1)
       , ("page", Encode.int page)
     ]
 
-post : Sort -> Int -> Cmd Msg
+post : String -> Int -> Cmd Msg
 post sort page =
     Http.post
       { 
