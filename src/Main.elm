@@ -26,6 +26,10 @@ import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Session
 import User
 import Server
+import ElmLogo as Logo
+import Svg
+import Svg.Attributes as SvgAttrs
+
 --import Components.SingUp as SignUp
 
 --97, 113, 181?
@@ -373,8 +377,12 @@ viewHeader model =
       div [ class "container-fluid" ][
         div [ class "navbar-header" ][
           div [ class "navbar-brand" ][ 
-            viewImage "assets/Elm_logo.svg.png" 35 35 
+            --viewImage "assets/Elm_logo.svg.png" 35 35 
+            Svg.svg [ SvgAttrs.width "35"
+            , SvgAttrs.viewBox "0 0 35 35" ][ 
+              Logo.svg 35 
             ]
+          ]
         ]
         , ul [ class "nav navbar-nav" ][
             li [] [ a [ href "/", case model.page of 
