@@ -34,6 +34,57 @@ type alias Preview =
     , views: Int
   }
 
+type alias PreviewContainer =
+  {
+    total: Int
+    , images: List Preview
+  }
+
+showPreview: Preview -> Html msg
+showPreview image =
+  div [ style "display" "inline-block"
+  , class "jumbotron"
+  , style "background-color" "white" ][
+    div[][
+      div [ style "margin-top" "-40px"][
+        h4 [][
+          a [ class "preview", 
+          href ("/profile/" ++ image.author) ] [ text (trimString image.title) ]
+        ]
+        , div [ class "help-block" 
+        , style "margin-top" "-10px" ][
+          text ("by ")
+          , a [ href ("/profile/" ++ image.author) ][ text image.author ]
+        ]
+        , a [ href ("/post/" ++ image.id) ][
+          img[src image.url
+          , height 400
+          , class "preview thumbnail"
+          , width 400
+          , style "object-fit" "cover"
+          , style "margin" "auto 10px" ][
+            text "Could not display image" 
+          ]
+        ]
+        , div [ class "help-block" ][
+          text ("views: " ++ String.fromInt image.views)
+        ]
+      ]
+    ]   
+  ]
+
+trimString: String -> String
+trimString string =
+  if String.length string > 25 then
+    String.append (String.slice 0 25 string) "..."
+  else
+    string
+
+decodePreviewContainer: Decode.Decoder PreviewContainer
+decodePreviewContainer =
+  Decode.succeed PreviewContainer
+    |> required "total" Decode.int
+    |> required "images" (Decode.list decodePreview)
 
 decodePreview: Decode.Decoder Preview
 decodePreview =

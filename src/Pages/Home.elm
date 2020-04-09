@@ -24,7 +24,7 @@ type Msg
 init: Maybe User.Model -> Nav.Key -> ( Model, Cmd Msg )
 init user key =
   ( Model key 
-    (Carousel.init (Array.fromList [ "./src/img/1.jpg", "./src/img/2.jpg", "./src/img/3.jpg", "./src/img/4.jpg" ]))
+    (Carousel.init (Array.fromList [ "assets/1.jpg", "assets/2.jpg", "assets/3.jpg", "assets/4.jpg" ]))
      user
      , Cmd.none 
   )
@@ -42,15 +42,44 @@ view model =
   in
     div [ style "text-align" "center" ][
       div [][ Carousel.view model.carousel |> Html.map UpdateCarousel ]
-      , h3 [ class "lead"
-      , style "font-size" "30px" ][
-        text "Welcome to Elm Gallery" 
+      , div [ style "margin-top" "-600px"
+      , style "width" "50%"
+      , style "margin-left" "25%" ][
+        h1 [ class "lead"
+        , style "color" "white"
+        , style "font-size" "60px" 
+        , style "opacity" "0.9" ][
+          text "Get Creative." 
+        ]
+        
+        , h3 [ class "lead" 
+        , style "color" "white" 
+        , style "font-size" "30px"
+        , style "opacity" "0.9"
+        , style "margin-top" "-25px" ][
+          text "Website created for sharing images - powered by Elm."
+        ]
+        , case model.user of
+          Just user ->
+            div[][]
+          Nothing ->
+            a [ href "/sign_up" ] [ button [ class "btn btn-lg btn-default" ][
+              h4 [] [ text "Get started" ] ]
+            ]
       ]
-      , div [ class "help-block"
-      , style "margin-top" "-20px" ][
-        text "Single page web application created as a school project"
+      , div[ style "margin-top" "470px" ][
+        h3 [ class "lead"
+        , style "font-size" "30px" ][
+          text "Welcome to Elm Gallery" 
+        ]
+        , div [ class "help-block"
+        , style "margin-top" "-20px" ][
+          text "Single page web application created as a school project"
+        ]
+        , div [ class "jumbotron", style "margin-bottom" "-20px" ][
+          h2 [] [ text "Get started" ]
+        ]
       ]
-      , div [ class "row", style "margin-top" "100px" ][]
     ]
 
 

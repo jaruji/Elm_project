@@ -270,6 +270,17 @@ async function routes(fastify) {
         )
     })
 
+    fastify.post('/accounts/q', async(req, res) => {
+        let query = req.body.query 
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
+        let output = cursor.map(({_id, secretKey, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
+        let obj = new Object()
+        obj.total = await db.collection('accounts').countDocuments({"username": {$regex: query, $options: 'i'}})
+        obj.users = output
+        res.send(obj)
+    })
+
     fastify.post('/accounts/query', async(req, res) => {
         let query = req.body.query 
         let page = req.body.page
@@ -281,6 +292,21 @@ async function routes(fastify) {
         let obj = new Object()
         obj.total = await db.collection('accounts').countDocuments({"username": {$regex: query, $options: 'i'}})
         obj.users = output
+        res.send(obj)
+    })
+
+    fastify.post('/images/q', async (req, res) => { 
+        //somehow need to send back the total number of pages so I can map the buttons
+        const db = client.db('database')
+        let query = req.body.query
+        var cursor = await db.collection('images').find({"title": {$regex: query, $options: 'i'}}).toArray()
+        let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
+        output.map(function(key){
+            key["file"] = "http://localhost:3000/img/" + key.file
+        })
+        let obj = new Object()
+        obj.total = await db.collection('images').countDocuments()
+        obj.images = output
         res.send(obj)
     })
     
@@ -354,6 +380,11 @@ async function routes(fastify) {
 
     fastify.delete('/comment/delete', async (req, res) => {
 
+    })
+
+    fastify.get('/carousel/get', async (req, res) => {
+
+        
     })
 }
 

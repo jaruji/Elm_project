@@ -373,7 +373,7 @@ viewHeader model =
       div [ class "container-fluid" ][
         div [ class "navbar-header" ][
           div [ class "navbar-brand" ][ 
-            viewImage "../src/img/Elm_logo.svg.png" 35 35 
+            viewImage "assets/Elm_logo.svg.png" 35 35 
             ]
         ]
         , ul [ class "nav navbar-nav" ][
@@ -428,19 +428,21 @@ viewLoading model =
 
 viewFooter: Html Msg
 viewFooter =
-  div 
-  [
-      style "background-color" "white"
-      , style "bottom" "0%"
-      , style "height" "100px"
-      , style "text-align" "center"
-      , style "color" "white"
-      , style "padding-top" "25px"
-      , style "background-color" "#2f2f2f"
-      , class "container-fluid text-center"
-  ] [ 
-    ul [ class "nav nav-pills" ] [
-      li [][ a [ href "https://github.com/jaruji?tab=repositories", style "color" "white" ] [ text "© 2020 Juraj Bedej" ] ]
+  div [ style "bottom" "0%"
+  , style "height" "100px"
+  , style "text-align" "center"
+  , style "color" "white"
+  , style "padding-top" "25px"
+  , style "background-color" "#2f2f2f"
+  , class "container-fluid text-center"
+  , style "margin-top" "20px" ][ 
+    ul [ style "margin-top" "20px" ] [
+      li [ class "nav" ][
+        a [ href "https://github.com/jaruji?tab=repositories"
+        , style "color" "white" ][
+          text "© 2020 Juraj Bedej" 
+        ]
+      ]
     ]
   ]
 

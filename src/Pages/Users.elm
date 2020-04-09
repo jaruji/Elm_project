@@ -13,12 +13,6 @@ import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 
---check askalot for inspiration, i like that idea :) 
---will just show small profile preview with circular avatar and username
---request all users -> interested in avatar, username, verif, registeredAt
---search bar with filtering on input ;)
---pagination might be necessary
-
 pageSize = 25
 
 type alias Model =
@@ -29,20 +23,14 @@ type alias Model =
     , page: Int
   }
 
-type alias UserPreviewContainer =
-  {
-    total: Int
-    , users: List User.Preview
-  }
-
 type Status
   = Loading
-  | Success (UserPreviewContainer)
+  | Success (User.PreviewContainer)
   | Failure String
 
 type Msg
   = Test
-  | Response (Result Http.Error (UserPreviewContainer))
+  | Response (Result Http.Error (User.PreviewContainer))
   | Query String
   | Next
   | Previous
@@ -134,7 +122,7 @@ view model =
                         , style "margin" "auto"
                         , style "border" "none" ]
                             (List.map User.showPreview users)
-                        , div [ style "margin-bottom" "50px", style "margin-top" "20px" ] [
+                        , div [ style "margin-top" "20px" ] [
                             div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
                             , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
                                 span [ class "glyphicon glyphicon-chevron-left" ] [] 
@@ -152,12 +140,6 @@ view model =
                 ]
     ]
 
-userPreviewContainerDecoder: Decode.Decoder UserPreviewContainer
-userPreviewContainerDecoder =
-    Decode.succeed UserPreviewContainer
-        |> required "total" Decode.int
-        |> required "users" (Decode.list User.decodePreview)
-
 encodeQuery: String -> Int -> Encode.Value
 encodeQuery query page =
     Encode.object 
@@ -173,7 +155,7 @@ getUsers query page =
     , headers = []
     , url = Server.url ++ "/accounts/query"
     , body = Http.jsonBody <| encodeQuery query page
-    , expect = Http.expectJson Response userPreviewContainerDecoder
+    , expect = Http.expectJson Response User.decodePreviewContainer
     , timeout = Nothing
     , tracker = Nothing
     }

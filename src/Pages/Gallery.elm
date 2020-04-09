@@ -28,19 +28,13 @@ type alias Model =
     , sort: String
   }
 
-type alias ImagePreviewContainer =
-  {
-    total: Int
-    , images: List Image.Preview
-  }
-
 type Status
     = Loading
     | Failure
-    | Success (ImagePreviewContainer)
+    | Success (Image.PreviewContainer)
 
 type Msg
-    = Response (Result Http.Error (ImagePreviewContainer))
+    = Response (Result Http.Error (Image.PreviewContainer))
     | SortNewest
     | SortPopular
     | SortTop
@@ -172,8 +166,8 @@ view model =
               else 
                 div [ class "panel panel-default"
                 , style "border" "none" ]
-                  (List.map showPreview images)
-                , div [ style "margin-bottom" "50px", style "margin-top" "20px" ] [
+                  (List.map Image.showPreview images)
+                , div [ style "margin-top" "20px" ] [
                   div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
                   , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
                     span [ class "glyphicon glyphicon-chevron-left" ] [] 
@@ -184,52 +178,6 @@ view model =
                 ]
             ]
   ]
-
-showPreview: Image.Preview -> Html Msg
-showPreview image =
-  div [ style "display" "inline-block"
-  , class "jumbotron"
-  , style "background-color" "white" ][
-    div[][
-      div [ style "margin-top" "-40px"][
-        h4 [][
-          a [ class "preview", 
-          href ("/profile/" ++ image.author) ] [ text (trimString image.title) ]
-        ]
-        , div [ class "help-block" 
-        , style "margin-top" "-10px" ][
-          text ("by ")
-          , a [ href ("/profile/" ++ image.author) ][ text image.author ]
-        ]
-        , a [ href ("/post/" ++ image.id) ][
-          img[src image.url
-          , height 400
-          , class "preview thumbnail"
-          , width 400
-          , style "object-fit" "cover"
-          , style "margin" "auto 10px" ][
-            text "Could not display image" 
-          ]
-        ]
-        , div [ class "help-block" ][
-          text ("views: " ++ String.fromInt image.views)
-        ]
-      ]
-    ]   
-  ]
-
-trimString: String -> String
-trimString string =
-  if String.length string > 25 then
-    String.append (String.slice 0 25 string) "..."
-  else
-    string
-
-imagePreviewContainerDecoder: Decode.Decoder ImagePreviewContainer
-imagePreviewContainerDecoder =
-  Decode.succeed ImagePreviewContainer
-    |> required "total" Decode.int
-    |> required "images" (Decode.list Image.decodePreview)
 
 encodeQuery: String -> Int -> Encode.Value
 encodeQuery sort page =
@@ -251,5 +199,5 @@ post sort page =
       { 
         url = Server.url ++ "/images/get"
         , body = Http.jsonBody <| encodeQuery sort page
-        , expect = Http.expectJson Response (imagePreviewContainerDecoder)
+        , expect = Http.expectJson Response Image.decodePreviewContainer
       }

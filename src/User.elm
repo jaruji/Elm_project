@@ -37,6 +37,18 @@ type alias Preview =
     , verif: Bool
   }
 
+type alias PreviewContainer =
+  {
+    total: Int
+    , users: List Preview
+  }
+
+decodePreviewContainer: Decode.Decoder PreviewContainer
+decodePreviewContainer =
+    Decode.succeed PreviewContainer
+        |> required "total" Decode.int
+        |> required "users" (Decode.list decodePreview)
+
 decodePreview: Decode.Decoder Preview
 decodePreview =
     Decode.succeed Preview

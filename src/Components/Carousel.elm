@@ -99,23 +99,8 @@ view model =
             [ 
               Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
             ]
-
-            , h1 [ class "lead"
-            , style "color" "white"
-            , style "font-size" "60px" 
-            , style "opacity" "0.9" ][
-              text "Get Creative." 
-            ]
-            
-            , h3 [ class "lead" 
-            , style "color" "white" 
-            , style "font-size" "30px"
-            , style "opacity" "0.9"
-            , style "margin-top" "-25px" ][
-              text "Website created for sharing images - powered by Elm."
-            ]
-            , div [ style "margin-top" "350px" ] (Array.toList (Array.map viewBullet model.source ))
           ]
+          , div [ style "margin-top" "900px" ] (Array.toList (Array.map viewBullet model.source ))
         ]
     Nothing ->
       div[][]

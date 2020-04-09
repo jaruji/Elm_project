@@ -12,33 +12,41 @@ type alias Model =
   {
     searchValue: String
     , key: Nav.Key
+    , state: State
   }
 
 init : Nav.Key -> ( Model, Cmd Msg)
 init key =
-  ({
-    searchValue = ""
-    , key = key
-  }, Cmd.none)
-
---Update
+  (Model "" key None, Cmd.none)
 
 type Msg
-    = UpdateValue String
-    | KeyHandler Int
+  = UpdateValue String
+  | KeyHandler Int
+
+type State
+  = Valid
+  | None
+  | Invalid
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     UpdateValue val ->
-      ({model | searchValue = val}, Cmd.none)
+      if val == "" then
+        ({ model | searchValue = val, state = None }, Cmd.none)
+      else if String.length val < 2 then
+        ({ model | searchValue = val, state = Invalid }, Cmd.none)
+      else
+        ({ model | searchValue = val, state = Valid }, Cmd.none)
     KeyHandler key ->
       case key of
         13 ->                       --on Enter down
-          case model.searchValue of
-            "" ->
+          case model.state of
+            None ->
               (model, Cmd.none)
-            _ ->
+            Invalid ->
+              (model, Cmd.none)
+            Valid ->
               ({ model | searchValue = "" }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
         _ ->
           (model, Cmd.none)
@@ -50,32 +58,19 @@ keyPress tagger =
 --View
 view :  Model -> Html Msg
 view model =
-    div [ class "form-inline", style "margin-top" "10px" ][
+    div [ class "form-inline"
+    , style "margin-top" "10px" ][
       input [ class "form-control"
-      , list "options"
       , type_ "text"
       , placeholder "Search"
       , value model.searchValue
-      , autocomplete True
       , onInput UpdateValue
       , keyPress KeyHandler ] []
       , span[ style "margin-top" "10px"
-            , style "color" "grey"
-            , class "glyphicon glyphicon-search form-control-feedback" ][]
-      , datalist [ id "options" ][ text "Ahoj", text "Testing", text "Waduhek"]
-      --, onFocus ()
-      --, button [ class "btn-primary", onClick Submit ][ text "Search" ]
-      --, div[][text ("Currently searching: " ++ model.searchValue)]
-      --, div[][text ("Submitted search: " ++ getValue model)]
+      , style "color" "grey"
+      , class "glyphicon glyphicon-search form-control-feedback" ][]
     ]
 
 getModel: (Model, Cmd Msg) -> Model
 getModel (model, cmd) =
   model
-
-
-
---Main
-
---main =
---  Browser.sandbox { init = init, update = update, view = view }
