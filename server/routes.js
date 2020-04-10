@@ -181,7 +181,18 @@ async function routes(fastify) {
         let author = req.body.username
         const db = client.db('database')
         var cursor = await db.collection('images').find({author: author}).sort({uploaded: -1}).limit(req.body.limit).toArray()
-        let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, views, author, ...rest}) => rest)
+        let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, ...rest}) => rest)
+        output.map(function(key){
+            key["file"] = "http://localhost:3000/img/" + key.file
+        })
+        res.send(output)
+    });
+
+    fastify.get('/posts/latest', async(req, res) => {
+        //get preview of user's posts
+        const db = client.db('database')
+        var cursor = await db.collection('images').find().sort({uploaded: -1}).limit(5).toArray()
+        let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, ...rest}) => rest)
         output.map(function(key){
             key["file"] = "http://localhost:3000/img/" + key.file
         })
@@ -384,7 +395,7 @@ async function routes(fastify) {
 
     fastify.get('/carousel/get', async (req, res) => {
 
-        
+
     })
 }
 

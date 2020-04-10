@@ -32,6 +32,7 @@ type alias Preview =
     , author: String
     , points: Int
     , views: Int
+    , uploaded: Time.Posix
   }
 
 type alias PreviewContainer =
@@ -95,6 +96,7 @@ decodePreview =
         |> optional "author" Decode.string "Anonymous"
         |> required "points" Decode.int
         |> required "views" Decode.int
+        |> required "uploaded" DecodeExtra.datetime
 
 decodeImage: Decode.Decoder Model
 decodeImage =

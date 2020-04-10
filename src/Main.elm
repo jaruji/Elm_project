@@ -366,10 +366,6 @@ view model =
           ]
         }
 
-viewImage : String -> Int -> Int -> Html msg
-viewImage path w h =
-  img[src path, width w, height h] []
-
 viewHeader: Model -> Html Msg
 viewHeader model = 
   div [ class "navbar navbar-inverse navbar-fixed-top", style "opacity" "0.95" ]

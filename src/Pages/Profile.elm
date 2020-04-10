@@ -19,6 +19,7 @@ import FeatherIcons as Icons
 import Social
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Time
+import Image
 import TimeFormat
 
 postCount = 5
@@ -49,14 +50,6 @@ init key user fragment =
     else 
         (Model user key Information "" "" "" "" "" "" "" "" fragment Loading LoadingPost, Cmd.batch [ loadUser fragment, getPosts fragment postCount ], Session.NoUpdate)
 
-type alias PostPreview =
-  { 
-    title: String
-    , uploaded: Time.Posix
-    , id: String
-    , url: String 
-  }
-
 type alias Point =
   { 
     x : Float
@@ -65,7 +58,7 @@ type alias Point =
 
 type PostStatus
  = LoadingPost
- | SuccessPost (List PostPreview)
+ | SuccessPost (List Image.Preview)
  | FailurePost
 
 type Status
@@ -99,7 +92,7 @@ type Msg
   | MailResponse (Result Http.Error())
   | AvatarResponse (Result Http.Error String)
   | VerifyResponse (Result Http.Error Bool)
-  | PostsResponse (Result Http.Error (List PostPreview))
+  | PostsResponse (Result Http.Error (List Image.Preview))
   | UpdateResponse  (Result Http.Error())
   | Response (Result Http.Error User.Model)
   | Select
@@ -473,7 +466,7 @@ view model =
                 ]
     ]
 
-viewPost: PostPreview -> Html Msg
+viewPost: Image.Preview -> Html Msg
 viewPost post =
     div[ class "media"
     , style "width" "70%"
@@ -591,14 +584,6 @@ settingsEncoder model =
             , ("bio", Encode.string model.bio)
         ]
 
-decodePostPreview: Decode.Decoder PostPreview
-decodePostPreview =
-    Decode.succeed PostPreview
-        |> required "title" Decode.string 
-        |> required "uploaded" DecodeExtra.datetime
-        |> required "id" Decode.string
-        |> required "file" Decode.string 
-
 getPostsEncoder: String -> Int -> Encode.Value
 getPostsEncoder username limit =
     Encode.object
@@ -606,7 +591,6 @@ getPostsEncoder username limit =
         ("username", Encode.string username)
         ,("limit", Encode.int limit)
     ]
-
 
 getPosts: String -> Int -> Cmd Msg
 getPosts username limit =
@@ -616,7 +600,7 @@ getPosts username limit =
         , headers = []
         , url = Server.url ++ "/account/posts"
         , body = Http.jsonBody <| getPostsEncoder username limit
-        , expect = Http.expectJson PostsResponse (Decode.list decodePostPreview)
+        , expect = Http.expectJson PostsResponse (Decode.list Image.decodePreview)
         , timeout = Nothing
         , tracker = Nothing
     }
