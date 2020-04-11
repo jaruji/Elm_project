@@ -230,7 +230,7 @@ view model =
         , div [ class "help-block" ][
           text ("Loaded file size: " ++ getSizeInKb model.fileSize ++ " kB")
         ]
-        , button [ class "btn btn-primary", onClick Upload, style "margin-bottom" "10px" ] [ text "Upload" ] 
+        , button [ class "btn btn-success", onClick Upload, style "margin-bottom" "10px" ] [ text "Upload" ] 
         , case model.warning of
           "" ->
             text ""

@@ -125,13 +125,14 @@ view model =
                             , text (" on " ++ TimeFormat.formatTime image.uploaded) 
                         ]
                     ]
-                    , hr[ style "width" "50%"
+                    , hr[ style "width" "60%"
                     , style "margin" "auto"
-                    , style "margin-bottom" "5px" ][]
-                    , div [ class "help-block" ] [ text ("This image has " ++ String.fromInt image.views ++ " views") ]
+                    , style "margin-bottom" "20px" ][]
+                    --, div [ class "help-block" ] [ text ("This image has " ++ String.fromInt image.views ++ " views") ]
                     , img [ src image.url
-                    , style "max-width" "1000px"
+                    , style "max-width" "1400px"
                     , style "max-height" "1500px" ] []
+                    {--
                     , div [ style "width" "50%"
                     , class "help-block"
                     , style "margin" "auto"
@@ -151,7 +152,8 @@ view model =
                             Icons.thumbsUp |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
                         ] 
                     ]
-                    , h3 [] [ text "Description" ]
+                    --}
+                    , h3 [ style "font-style" "bold"  ] [ text "Description" ]
                     , p [ style "font-size" "16px"
                     , style "max-width" "600px"
                     , style "margin" "auto" ][
@@ -159,17 +161,17 @@ view model =
                             "No description" ->
                                 div [ style "font-style" "italic" ][ text image.description ]
                             _ -> 
-                                text image.description 
+                                text image.description
                     ]
                     , case List.isEmpty image.tags of
                         True ->
                             div[][
-                                h3 [] [ text "Tags" ]
+                                h3 [ style "font-style" "bold"  ] [ text "Tags" ]
                                 , div [ style "font-style" "italic" ] [ text "No tags" ]
                             ]
                         False ->
                             div[][
-                                h3 [] [ text "Tags" ]
+                                h3 [ style "font-style" "bold"  ] [ text "Tags" ]
                                 , div [ style "max-width" "600px"
                                 , style "margin" "auto"
                                 , style "margin-top" "10px" ]

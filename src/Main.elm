@@ -443,7 +443,8 @@ viewFooter =
     ul [ style "margin-top" "20px" ] [
       li [ class "nav" ][
         a [ href "https://github.com/jaruji?tab=repositories"
-        , style "color" "white" ][
+        , style "color" "white"
+        , class "preview" ][
           text "© 2020 Juraj Bedej" 
         ]
       ]

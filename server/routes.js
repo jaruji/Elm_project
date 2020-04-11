@@ -171,6 +171,7 @@ async function routes(fastify) {
                 delete docs[0].email
                 delete docs[0].token
                 delete docs[0].twoFactor
+                delete docs[0].secretKey
                 res.send(docs[0])
             }
         })

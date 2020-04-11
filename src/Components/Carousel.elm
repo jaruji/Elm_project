@@ -73,7 +73,6 @@ view model =
             , style "background-color" "gray"
             , style "background-size" "cover"
             , style "overflow" "hidden"
-            --, style "box-shadow" "0px 10px 5px #888, 0px -10px 5px #888"
             , style "transition" "all .5s ease-in-out"
         ][
           div[ style "margin-top" "450px" ][

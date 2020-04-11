@@ -86,10 +86,13 @@ view model =
               h4 [] [ text "Get started" ] ]
             ]
       ]
-      , div[ style "margin-top" "450px" ][
-        div [ class "jumbotron", style "margin-bottom" "-20px" ][
+      , div[ style "margin-top" "470px" ][
+        div [ style "margin-bottom" "20px" ][
           h2 [] [ text "Latest posts" ]
           , div [ class "help-block" ] [ text "Overview of latest images posted to the site" ]
+          , hr [ style "width" "70%" 
+          , style "margin" "auto" 
+          , style "margin-bottom" "20px" ] []
           , case model.status of
             Loading ->
               div[ style "margin-top" "20px" ][
@@ -124,14 +127,22 @@ showPost post =
         , style "text-align" "center" ][
             div [ class "media-heading" ][
                 div [] [
-                    a [ href ("/post/" ++ post.id) ][ h3 [] [ text post.title ] ]
+                    a [ href ("/post/" ++ post.id), class "preview" ][ 
+                      h3 [] [ text post.title ] 
+                    ]
                 ]
             ]
             , div [ class "media-body" ][
-                h4 [] [ text ( "Uploaded at " ++ TimeFormat.formatTime post.uploaded ) ]
-                , h4 [] [ text ( "by " ++ post.author) ]
-                , h4 [] [ text ( String.fromInt post.points ++ " points" ) ]
-                , h4 [] [ text ( String.fromInt post.views ++ " views" ) ]
+              div[ class "help-block" ][
+                  h4 [] [ text ( "Uploaded at " ++ TimeFormat.formatTime post.uploaded ) ]
+                  , h4 [] [
+                    text ("by ")
+                    , a [ href ("/profile/" ++ post.author), class "preview" ][
+                      text post.author
+                    ] 
+                  ]
+                  , h4 [] [ text ( String.fromInt post.views ++ " views" ) ]
+                ]
             ]
         ]
     ]
