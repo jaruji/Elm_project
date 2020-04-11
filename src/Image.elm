@@ -9,7 +9,9 @@ import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Server
 import Image.Comment as Comment
+import FeatherIcons as Icons
 import Time
+import TimeFormat
 
 type alias Model =
   {
@@ -48,27 +50,57 @@ showPreview image =
   , style "background-color" "white" ][
     div[][
       div [ style "margin-top" "-40px"][
-        h4 [][
-          a [ class "preview", 
-          href ("/profile/" ++ image.author) ] [ text (trimString image.title) ]
-        ]
-        , div [ class "help-block" 
-        , style "margin-top" "-10px" ][
-          text ("by ")
-          , a [ href ("/profile/" ++ image.author) ][ text image.author ]
-        ]
-        , a [ href ("/post/" ++ image.id) ][
-          img[src image.url
+        a [ href ("/post/" ++ image.id) ][
+          img[ src image.url
+          , attribute "draggable" "false"
           , height 400
-          , class "preview thumbnail"
+          , class "preview"
           , width 400
           , style "object-fit" "cover"
           , style "margin" "auto 10px" ][
             text "Could not display image" 
           ]
         ]
-        , div [ class "help-block" ][
-          text ("views: " ++ String.fromInt image.views)
+        , div[ class "caption"
+        , style "width" "400px"
+        , style "border" "0.5px solid #F5F5F5"
+        , style "height" "150px"
+        , style "margin" "auto" ][
+          h3 [][
+            a [ class "preview", 
+            href ("/post/" ++ image.id) ][
+              text (trimString image.title) 
+            ]
+          ]
+          {--
+          , div [ class "help-block" 
+          , style "margin-top" "-10px" ][ 
+            text (TimeFormat.formatDate image.uploaded)
+          ]--}
+          , div [ class "help-block" 
+          , style "margin-top" "-10px" ][
+            text ("by ")
+            , a [ href ("/profile/" ++ image.author)
+            , class "preview" ][ text image.author ]
+          ]
+          , hr [][]
+          , div [ style "opacity" "0.3" ][
+            span [ class "col-sm-4" ][
+              Icons.eye |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+              , b [ style "margin-left" "5px"
+              , style "font-size" "15px" ][ text (String.fromInt image.views) ]
+            ]
+            , span [ class "col-sm-4" ][
+              Icons.award |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+              , b [ style "margin-left" "5px"
+              , style "font-size" "15px" ][ text (String.fromInt image.points) ]
+            ]
+            , span [ class "col-sm-4" ][
+              Icons.heart |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+              , b [ style "margin-left" "5px"
+              , style "font-size" "15px" ][ text (String.fromInt 0) ]
+            ]
+          ]
         ]
       ]
     ]   

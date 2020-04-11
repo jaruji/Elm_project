@@ -104,6 +104,7 @@ showPreview user =
         img [ 
         src user.avatar
         , class "previewAvatar"
+        , attribute "draggable" "false"
         , height 200
         , width 200
         , style "border-radius" "50%"

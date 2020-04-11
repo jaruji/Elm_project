@@ -1,1 +1,6 @@
-module Profile.Settings exposing (..)
+module Pages.Profile.Settings exposing (..)
+
+type alias Model =
+  {
+
+  }

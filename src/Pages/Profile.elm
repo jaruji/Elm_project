@@ -15,12 +15,15 @@ import Json.Decode.Extra as DecodeExtra
 import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import Json.Encode as Encode exposing (..)
 import LineChart
-import FeatherIcons as Icons
 import Social
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Time
 import Image
 import TimeFormat
+import Pages.Profile.Information
+import Pages.Profile.Settings
+import Pages.Profile.Security
+import Pages.Profile.History
 
 postCount = 5
 
@@ -233,6 +236,7 @@ view model =
                 div[][
                     div[ class "jumbotron" ][
                         img [ class "avatar"
+                        , attribute "draggable" "false"
                         , style "border" "10px solid white"
                         , src user.avatar
                         , style "border-radius" "50%"
@@ -246,9 +250,13 @@ view model =
                         , br [] []
                         , h3 [] [ text user.username
                                 , if user.verif == True then 
-                                    span [ class "glyphicon glyphicon-ok-circle", style "color" "green", style "margin-left" "5px" ][]
+                                    span [ class "glyphicon glyphicon-ok-circle"
+                                    , style "color" "green"
+                                    , style "margin-left" "5px" ][]
                                 else
-                                    span [ class "glyphicon glyphicon-remove-circle", style "color" "red", style "margin-left" "5px" ] []
+                                    span [ class "glyphicon glyphicon-remove-circle"
+                                    , style "color" "red"
+                                    , style "margin-left" "5px" ] []
                         ]
                         , div [ style "margin-bottom" "20px" ] [
                             ul [ class "nav" ] [
@@ -269,17 +277,83 @@ view model =
                                         div [][]
                             ]
                         ]
-                        , div [ style "font-style" "italic" ] [ text user.bio ]
+                        , i [] [ text user.bio ]
                     ]
                     , if user.token /= "Hidden" then
-                            ul [ class "nav nav-pills" ][
-                                li [][ button [ if model.tab == Information then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchInformation ] [ {--span [ class " glyphicon glyphicon-info-sign" ][],--} text "Information"] ]
-                                , li [][ button [ if model.tab == Settings then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchSettings ] [ text "Settings"] ]
-                                , li [][ button [ if model.tab == Security then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchSecurity ] [ text "Security"] ]
-                                , li [][ button [ if model.tab == History then style "text-decoration" "underline" else style "" "", style "color" "black", onClick SwitchHistory ] [ text "History"] ]
+                        div[][
+                            ul [ class "nav nav-pills"
+                            , style "margin-top" "-30px" ][
+                                li [][ 
+                                    button [ style "color" "black"
+                                    , class "preview"
+                                    , onClick SwitchInformation
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , style "outline" "none" ][ 
+                                        h4[][ text "Information" ]
+                                    ]
+                                    , if model.tab == Information then
+                                    hr[ style "width" "90%"
+                                    , style "margin-top" "-5px"
+                                    , style "border" "1.5px solid #00acee" ][]
+                                    else
+                                        text ""
+                                ]
+                                , li [][ 
+                                    button [ style "color" "black"
+                                    , class "preview"
+                                    , onClick SwitchSettings
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , style "outline" "none" ][ 
+                                        h4[][ text "Settings" ]
+                                    ]
+                                    , if model.tab == Settings then
+                                    hr[ style "width" "90%"
+                                    , style "margin-top" "-5px"
+                                    , style "border" "1.5px solid #00acee" ][]
+                                    else
+                                        text "" 
+                                ]
+                                , li [][ 
+                                    button [ style "color" "black"
+                                    , class "preview"
+                                    , onClick SwitchSecurity
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , style "outline" "none" ][ 
+                                        h4[][ text "Security" ] 
+                                    ] 
+                                    , if model.tab == Security then
+                                    hr[ style "width" "90%"
+                                    , style "margin-top" "-5px"
+                                    , style "border" "1.5px solid #00acee" ][]
+                                    else
+                                        text ""
+                                ]
+                                , li [][ 
+                                    button [ style "color" "black"
+                                    , class "preview"
+                                    , onClick SwitchHistory
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , style "outline" "none" ][ 
+                                        h4[][ text "History" ] 
+                                    ]
+                                    , if model.tab == History then
+                                    hr[ style "width" "90%"
+                                    , style "margin-top" "-5px"
+                                    , style "border" "1.5px solid #00acee" ][]
+                                    else
+                                        text "" 
+                                ] 
                             ]
+                        ]
                         else
                             text ""
+
+                    -----------------MOVE THIS TO THE OTHER FILES!
+                    -----------------LEGIT MOVE ALL OF THIS TRASH!
                     , case model.tab of
                         Information ->
                             div[ class "list-group" ][
@@ -291,7 +365,7 @@ view model =
                                 , hr [] []
                                 , h3 [] [ text "Account information" ]
                                 , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
-                                , text ("Registered at " ++ TimeFormat.formatTime user.registered)
+                                , text ("Registered at " ++ TimeFormat.formatDate user.registered)
                                 , hr [][]
                                 , h3 [] [ text "Post history" ]
                                 , div [ class "help-block" ] [ text ("Preview of " ++ user.username ++ "'s posts") ]
@@ -475,6 +549,7 @@ viewPost post =
         div[ class "media-left" ][
             a [ href ("/post/" ++ post.id) ][
                 img [ src post.url
+                , attribute "draggable" "false"
                 , class "avatar"
                 , height 100
                 , width 100 ][]
@@ -488,7 +563,8 @@ viewPost post =
                 ]
             ]
             , div [ class "media-body" ][
-                a [ href ("/post/" ++ post.id) ] [ text post.title ]
+                a [ href ("/post/" ++ post.id)
+                , class "preview" ] [ text post.title ]
             ]
         ]
     ]

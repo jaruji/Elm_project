@@ -119,8 +119,9 @@ showPost post =
             a [ href ("/post/" ++ post.id) ][
                 img [ src post.url
                 , class "avatar"
-                , height 220
-                , width 220 ][]
+                , attribute "draggable" "false"
+                , height 170
+                , width 170 ][]
             ]
         ]
         , div[ class "media-body well"
@@ -128,20 +129,20 @@ showPost post =
             div [ class "media-heading" ][
                 div [] [
                     a [ href ("/post/" ++ post.id), class "preview" ][ 
-                      h3 [] [ text post.title ] 
+                      h4 [] [ text post.title ] 
                     ]
                 ]
             ]
             , div [ class "media-body" ][
               div[ class "help-block" ][
-                  h4 [] [ text ( "Uploaded at " ++ TimeFormat.formatTime post.uploaded ) ]
-                  , h4 [] [
+                  h5 [] [ text ( "Uploaded at " ++ TimeFormat.formatDate post.uploaded ) ]
+                  , h6 [] [
                     text ("by ")
                     , a [ href ("/profile/" ++ post.author), class "preview" ][
                       text post.author
                     ] 
                   ]
-                  , h4 [] [ text ( String.fromInt post.views ++ " views" ) ]
+                  , h5 [] [ text ( String.fromInt post.views ++ " views" ) ]
                 ]
             ]
         ]

@@ -1,12 +1,13 @@
 module Pages.Post exposing (..)
 import Browser
 import Browser.Navigation as Nav
+import Browser.Dom as Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
+import Task
 import User
-import Session
 import Server
 import File exposing (File, size, name)
 import File.Select as Select
@@ -49,14 +50,22 @@ type Msg
   | Submit
   | Upvote
   | Downvote
+  | Empty
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" "", Cmd.batch [ post fragment, loadComments fragment ])
+    (Model key user Loading LoadingComments "" ""
+    , Cmd.batch [
+        post fragment
+        , loadComments fragment
+        , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) 
+    ])
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
+        Empty ->
+            (model, Cmd.none)
         Response response ->
             case response of
                 Ok image ->
@@ -237,11 +246,14 @@ viewComment comment =
     , style "margin" "auto"
     , style "margin-bottom" "20px"  ][
     div[ class "media-left" ][
-        img [ src comment.url
-        , class "avatar"
-        , height 80
-        , width 80
-        , style "border-radius" "50%" ][]
+        a [ href ("/profile/" ++ comment.username) ][
+            img [ src comment.url
+            , class "avatar"
+            , attribute "draggable" "false"
+            , height 80
+            , width 80
+            , style "border-radius" "50%" ][]
+        ]
     ]
     , div[ class "media-body well"
     , style "text-align" "left" ][

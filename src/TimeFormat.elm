@@ -14,6 +14,15 @@ formatTime time =
     ++ ":"
     ++ minuteToString (Time.toMinute Time.utc time)
 
+formatDate: Time.Posix -> String
+formatDate time =
+    String.fromInt(Time.toDay Time.utc time)
+    ++ helper (Time.toDay Time.utc time)
+    ++ " of "
+    ++ monthToString (Time.toMonth Time.utc time)
+    ++ " "
+    ++ String.fromInt (Time.toYear Time.utc time)
+
 minuteToString: Int -> String
 minuteToString min =
     if min < 10 then
