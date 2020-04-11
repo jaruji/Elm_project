@@ -30,11 +30,12 @@ type alias Model =
     , newPassword: String
     , newPasswordAgain: String
     , passStatus: PasswordStatus
+    , delStatus: DeleteStatus
   }
 
 init: Nav.Key -> User.Model -> (Model, Cmd Msg)
 init key user =
-    (Model user key "" "" "" "" LoadingP, Cmd.none)
+    (Model user key "" "" "" "" LoadingP NoneD, Cmd.none)
 
 type Msg
   = Empty
@@ -49,19 +50,19 @@ type Msg
   | VerifyResponse (Result Http.Error Bool)
   | MailResponse (Result Http.Error())
   | Delete
+  | ConfirmDelete
+  | DeleteResponse (Result Http.Error())
 
 type PasswordStatus
   = LoadingP
   | SuccessP
   | FailureP
 
-{--
 type DeleteStatus
-  = None
-  | Loading
-  | Failure
-  | Success
---}
+  = NoneD
+  | LoadingD
+  | FailureD
+  | SuccessD
 
 getModel: (Model, Cmd Msg) -> Model
 getModel (model, cmd) =
@@ -106,7 +107,10 @@ update msg model =
             ({ model | newPasswordAgain = string }, Cmd.none)
 
         Delete ->
-            (model, Cmd.none)
+            ({ model | delStatus = LoadingD }, Cmd.none)
+
+        ConfirmDelete ->
+            (model, deleteAccount model)
 
         ChangePassword ->
             (model, changePassword model)
@@ -117,6 +121,13 @@ update msg model =
                     ({ model | passStatus = SuccessP }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/sign_in" ] )
                 Err _ ->
                     ({ model | passStatus = FailureP }, Cmd.none)
+
+        DeleteResponse response ->
+            case response of
+                Ok _ ->
+                    ({ model | delStatus = SuccessD }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/" ])
+                Err _ ->
+                    ({ model | delStatus = FailureD }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -238,11 +249,34 @@ view model =
             , div [ class "help-block" ][ 
                 text "Press the following button if you wish to permanently delete your account. This will also delete your posts and comments!"
             ]
-            , button [ class "btn btn-danger"
-            , style "margin-bottom" "50px"
-            , onClick Delete ][
-                text "Delete account" 
-            ]
+            , case model.delStatus of
+                NoneD ->
+                    button [ class "btn btn-danger"
+                    , style "margin-bottom" "15px"
+                    , onClick Delete ][
+                        text "Delete account" 
+                    ]
+                LoadingD ->
+                    div[ class "alert alert-danger form-group row"
+                    , style "width" "50%"
+                    , style "margin" "auto" ][
+                        div [ class "col-md-offset-2 col-md-8" ] [
+                            div[ class "form-group has-feedback" ][
+                                label [ for "del" ] [ text "Enter your password:" ]
+                                , input [ id "del", type_ "password", class "form-control", Html.Attributes.value model.password, onInput Password ] []
+                            ]
+                            , button [ class "btn btn-danger"
+                            , onClick ConfirmDelete ][ text "Confirm" ]
+                        ]
+                    ]
+                FailureD ->
+                    div[ class "alert alert-warning"
+                    , style "width" "50%"
+                    , style "margin" "auto" ][
+                        text "Deleting account failed"
+                    ]
+                _ ->
+                    text ""
         ]   
 
 viewVerify: Model -> Html Msg
@@ -285,6 +319,10 @@ passwordEncoder oldP newP =
         , ("newPassword", Encode.string (Crypto.sha256 newP) )
     ]
 
+deleteEncoder: String -> Encode.Value
+deleteEncoder password =
+    Encode.object[("password", Encode.string (Crypto.sha256 password))]
+
 changePassword: Model -> Cmd Msg
 changePassword model =
     Http.request
@@ -293,6 +331,18 @@ changePassword model =
     , url = Server.url ++ "/account/password"
     , body = Http.jsonBody <| (passwordEncoder model.password model.newPassword)
     , expect = Http.expectWhatever PasswordResponse
+    , timeout = Nothing
+    , tracker = Nothing
+    }
+
+deleteAccount: Model -> Cmd Msg
+deleteAccount model =
+    Http.request
+    { method = "DELETE"
+    , headers = [ Http.header "auth" model.user.token ]
+    , url = Server.url ++ "/account/delete"
+    , body = Http.jsonBody <| deleteEncoder model.password
+    , expect = Http.expectWhatever DeleteResponse
     , timeout = Nothing
     , tracker = Nothing
     }

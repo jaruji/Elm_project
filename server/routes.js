@@ -173,6 +173,25 @@ async function routes(fastify) {
         })
     })
 
+    fastify.delete('/account/delete', async(req, res) => {
+        //maybe delete the images from system too?
+        const db = client.db('database')
+        let auth = req.headers.auth
+        let password = req.body.password
+        var user = await db.collection('accounts').findOne({token: auth, password: password}, async function(err, result) {
+            if (result) {
+                var delAcc = await db.collection('accounts').deleteMany({token: auth, username: result.username})
+                var delImg = await db.collection('images').deleteMany({author: result.username})
+                var delComm = await db.collection('comments').deleteMany({username: result.username})
+                res.code(200).send()
+            } 
+            else {
+                res.code(400).send(new Error("Invalid creditentials"))
+            }
+        })
+
+    })
+
     fastify.post('/account/user', async(req, res) => {
         //return only public user info! input is username, returns
         let username = req.body.username

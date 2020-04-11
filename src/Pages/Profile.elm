@@ -6,7 +6,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import User
-import Session
 import Server
 import File exposing (File, size, name)
 import File.Select as Select
@@ -303,17 +302,23 @@ view model =
                         Information ->
                             div[ class "list-group" ][
                                 h3 [] [ text "Basic information" ]
-                                , div [ class "help-block" ] [ text ("Here are some basic information about " ++ user.username) ]
+                                , div [ class "help-block" ][
+                                    text ("Here are some basic information about " ++ user.username) 
+                                ]
                                 , viewStringInfo user.firstName "First Name"
                                 , viewStringInfo user.surname "Last Name"
                                 , viewStringInfo user.occupation "Occupation"
                                 , hr [] []
                                 , h3 [] [ text "Account information" ]
-                                , div [ class "help-block" ] [ text ("Here are some information about " ++ user.username ++ "'s account") ]
+                                , div [ class "help-block" ][ 
+                                    text ("Here are some information about " ++ user.username ++ "'s account")
+                                ]
                                 , text ("Registered at " ++ TimeFormat.formatDate user.registered)
                                 , hr [][]
                                 , h3 [] [ text "Post history" ]
-                                , div [ class "help-block" ] [ text ("Preview of " ++ user.username ++ "'s posts") ]
+                                , div [ class "help-block" ][
+                                    text ("Preview of " ++ user.username ++ "'s posts")
+                                ]
                                 , case model.postsStatus of
                                     LoadingPosts ->
                                         div [] [
@@ -327,21 +332,28 @@ view model =
                                         ]
                                     SuccessPosts posts ->
                                         if List.isEmpty posts == True then
-                                            div [ style "font-style" "italic" ] [ text "This user has no posts" ]
+                                            div [ style "font-style" "italic" ][
+                                                text "This user has no posts" 
+                                            ]
                                         else
                                             div [] [
                                                 div [] (List.map viewPost posts)
                                                 , if List.length posts == postCount then
                                                     button [ class "btn btn-primary"
-                                                    , onClick LoadMore ] [ text "Load more" ]
+                                                    , onClick LoadMore ][
+                                                        text "Load more"
+                                                    ]
                                                 else
                                                     text ""
                                             ]
                             ]
+                            
                         Settings tab ->
                             SettingsTab.view tab |> Html.map SettingsMsg
+
                         Security tab ->
                             SecurityTab.view tab |> Html.map SecurityMsg
+
                         History tab ->
                             HistoryTab.view tab |> Html.map HistoryMsg
                 ]
