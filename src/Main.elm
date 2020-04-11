@@ -133,7 +133,7 @@ update msg model =
       routeUrl url model
 
     LogOut ->
-      ( { model | state = Ready Session.init }, User.logout ) --?? bugged
+      ( { model | state = Ready Session.init }, User.logout )
     
     UpdateSearch mesg -> 
        --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
@@ -210,13 +210,9 @@ stepUsers: Model -> (Users.Model, Cmd Users.Msg) -> (Model, Cmd Msg)
 stepUsers model (users, cmd) =
   ({ model | page = Users users }, Cmd.map UsersMsg cmd) 
   
-stepProfile: Model -> (Profile.Model, Cmd Profile.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
-stepProfile model (profile, cmd, session) =
-  case model.state of
-    Ready sess ->
-      ({ model | page = Profile profile, state = Ready (Session.update session sess) }, Cmd.map ProfileMsg cmd)
-    _ -> 
-      (model, Cmd.none)
+stepProfile: Model -> (Profile.Model, Cmd Profile.Msg) -> (Model, Cmd Msg)
+stepProfile model (profile, cmd) =
+  ({ model | page = Profile profile }, Cmd.map ProfileMsg cmd)
 
 stepSearch: Model -> (Search.Model, Cmd Search.Msg) -> (Model, Cmd Msg)
 stepSearch model ( search, cmd ) =
@@ -445,7 +441,8 @@ viewFooter =
   , style "text-align" "center"
   , style "color" "white"
   , style "padding-top" "25px"
-  , style "background-color" "#2f2f2f"
+  , style "background-color" "#222"
+  , style "opacity" "0.98"
   , class "container-fluid text-center"
   , style "margin-top" "20px" ][ 
     ul [ style "margin-top" "20px" ] [

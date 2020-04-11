@@ -170,7 +170,7 @@ view model =
                             "No description" ->
                                 div [ style "font-style" "italic" ][ text image.description ]
                             _ -> 
-                                text image.description
+                                i [] [ text image.description ]
                     ]
                     , case List.isEmpty image.tags of
                         True ->

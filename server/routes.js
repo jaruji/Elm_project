@@ -103,6 +103,8 @@ async function routes(fastify) {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db('database')
+        let username = req.body.username
+        let code = req.body.code
         var cursor = await db.collection('accounts').find(req.body).toArray(async function(err, docs){
             if(docs.length === 0){
                 console.log(docs)
@@ -151,6 +153,22 @@ async function routes(fastify) {
                 delete docs[0].secretKey
                 delete docs[0].twoFactor
                 res.send(docs[0])
+            }
+        })
+    })
+
+    fastify.patch('/account/password', async(req, res) => {
+        const db = client.db('database')
+        let auth = req.headers.auth
+        let oldPass = req.body.oldPassword
+        let newPass = req.body.newPassword
+        var test = await db.collection('accounts').findOne({token: auth, password: oldPass}, async function(err, result) {
+            if (result) {
+                var cursor = await db.collection('accounts').updateOne({token: auth}, {$set:{password: newPass}})
+                res.code(200).send()
+            } 
+            else {
+                res.code(400).send(new Error("Invalid creditentials"))
             }
         })
     })

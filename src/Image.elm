@@ -85,17 +85,20 @@ showPreview image =
           ]
           , hr [][]
           , div [ style "opacity" "0.3" ][
-            span [ class "col-sm-4" ][
+            span [ class "col-sm-4"
+            , title "Views" ][
               Icons.eye |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
               , b [ style "margin-left" "5px"
               , style "font-size" "15px" ][ text (String.fromInt image.views) ]
             ]
-            , span [ class "col-sm-4" ][
+            , span [ class "col-sm-4"
+            , title "Points" ][
               Icons.award |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
               , b [ style "margin-left" "5px"
               , style "font-size" "15px" ][ text (String.fromInt image.points) ]
             ]
-            , span [ class "col-sm-4" ][
+            , span [ class "col-sm-4"
+            , title "Favourites" ][
               Icons.heart |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
               , b [ style "margin-left" "5px"
               , style "font-size" "15px" ][ text (String.fromInt 0) ]
