@@ -19,6 +19,7 @@ import Image
 import Image.Comment as Comment
 import Tag
 import TimeFormat
+import Markdown
 
 type alias Model =
   { 
@@ -50,13 +51,14 @@ type Msg
   | Submit
   | Upvote
   | Downvote
+  | Veto
   | Empty
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
     (Model key user Loading LoadingComments "" ""
     , Cmd.batch [
-        post fragment
+        post fragment user
         , loadComments fragment
         , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) 
     ])
@@ -104,10 +106,13 @@ update msg model =
                     (model, Cmd.none)
 
         Upvote ->
-            (model, rate 1 model.id)
+            (model, rate model "upvote")
 
         Downvote ->
-            (model, rate -1 model.id)
+            (model, rate model "downvote")
+
+        Veto ->
+            (model, rate model "veto")
 
 view: Model -> Html Msg
 view model =
@@ -141,28 +146,44 @@ view model =
                     , img [ src image.url
                     , style "max-width" "1400px"
                     , style "max-height" "1500px" ] []
-                    {--
-                    , div [ style "width" "50%"
-                    , class "help-block"
+                    , h3 [][ b[] [ text "Stats"] ]
+                    , hr [ style "width" "50%" 
                     , style "margin" "auto"
-                    , style "margin-top" "10px" ] [ text ("Image currently has " ++ String.fromInt image.points ++ " points")]
-                    , div [] [ 
-                        button [ class "btn btn-danger"
-                        , style "margin-top" "10px"
-                        , style "margin-right" "10px"
-                        , style "color" "white"
-                        , onClick Downvote ][
-                            Icons.thumbsDown |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                    , style "margin-top" "5px" ][]
+                    , div [ style "width" "50%"
+                    , style "margin" "auto"
+                    , style "margin-top" "10px" ][
+                        span [ class "col-sm-4"
+                        , title "Views" ][
+                          Icons.eye |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                          , b [ style "margin-left" "5px"
+                          , style "font-size" "15px" ][ text (String.fromInt image.views) ]
                         ]
-                        , button [ class "btn btn-success"
-                        , style "margin-top" "10px"
-                        , style "color" "white"
-                        , onClick Upvote ][
-                            Icons.thumbsUp |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                        ] 
+                        , span [ class "col-sm-4"
+                        , title "Points" ][
+                          Icons.award |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                          , b [ style "margin-left" "5px"
+                          , style "font-size" "15px" ][ text (String.fromInt image.points) ]
+                        ]
+                        , span [ class "col-sm-4"
+                        , title "Favourites" ][
+                          Icons.heart |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                          , b [ style "margin-left" "5px"
+                          , style "font-size" "15px" ][ text (String.fromInt 0) ]
+                        ]
+                    ]
+                    , br [][]
+                    {--
+                    , div[][
+                        button [ class "btn btn-primary" 
+                        , onClick Upvote ][ text "Upvote" ]
+                        , button [ class "btn btn-primary" 
+                        , onClick Downvote ][ text "Downvote" ]
                     ]
                     --}
-                    , h3 [ style "font-style" "bold"  ] [ text "Description" ]
+                    , h3 [][
+                        b[][ text "Description" ]
+                    ]
                     , p [ style "font-size" "16px"
                     , style "max-width" "600px"
                     , style "margin" "auto" ][
@@ -175,12 +196,12 @@ view model =
                     , case List.isEmpty image.tags of
                         True ->
                             div[][
-                                h3 [ style "font-style" "bold"  ] [ text "Tags" ]
+                                h3 [] [ b[][ text "Tags" ] ]
                                 , div [ style "font-style" "italic" ] [ text "No tags" ]
                             ]
                         False ->
                             div[][
-                                h3 [ style "font-style" "bold"  ] [ text "Tags" ]
+                                h3 [] [ b[][ text "Tags" ] ]
                                 , div [ style "max-width" "600px"
                                 , style "margin" "auto"
                                 , style "margin-top" "10px" ]
@@ -281,7 +302,7 @@ viewComment comment =
             ]
         ]
         , div[][
-            text comment.content
+            Markdown.toHtml [ class "content" ]  comment.content
         ]
     ]
  ]
@@ -298,21 +319,25 @@ encodeComment id username content =
         , ("content", Encode.string content)
     ] 
 
-encodeRate: Int -> String -> Encode.Value
-encodeRate method id =
+encodeRate: String -> String -> Encode.Value
+encodeRate vote id =
     Encode.object[
-        ("method", Encode.int method)
+        ("vote", Encode.string vote)
         , ("id", Encode.string id)
     ]
 
-rate: Int -> String -> Cmd Msg
-rate method id = 
+rate: Model -> String -> Cmd Msg
+rate model vote = 
     Http.request
     {
         method = "PATCH"
-        , headers = []
+        , headers = case model.user of
+            Just user ->
+                [ Http.header "auth" user.token ]
+            Nothing ->
+                []
         , url = Server.url ++ "/images/rate"
-        , body = Http.jsonBody <| (encodeRate method id)
+        , body = Http.jsonBody <| (encodeRate vote model.id)
         , expect = Http.expectWhatever RateResponse
         , timeout = Nothing
         , tracker = Nothing
@@ -336,11 +361,19 @@ postComment id username content =
         , expect = Http.expectWhatever CommentResponse
       }
 
-post : String -> Cmd Msg
-post id =
-    Http.post
-      { 
-        url = Server.url ++ "/images/id"
+post : String -> Maybe User.Model -> Cmd Msg
+post id user =
+    Http.request
+      {   
+        method = "POST"
+        , headers = case user of
+            Just usr ->
+                [ Http.header "auth" usr.token ]
+            Nothing ->
+                []
+        , url = Server.url ++ "/images/id"
         , body = Http.jsonBody <| encodeID id
         , expect = Http.expectJson Response Image.decodeImage
+        , timeout = Nothing
+        , tracker = Nothing
       }

@@ -16,10 +16,9 @@ import Browser.Navigation as Nav
 import Crypto.Hash as Crypto
 
 --TODO
---implement password change
---finish email verif and fix the server side error
---implement account delete - deletes all your images and comments too!
---or alternatively changes user to anonymous, but delete is easier
+--implement password change DONE
+--finish email verif and fix the server side error NOT YET
+--implement account delete - deletes all your images and comments too! DONE
 
 type alias Model =
   {
@@ -29,13 +28,15 @@ type alias Model =
     , password: String
     , newPassword: String
     , newPasswordAgain: String
-    , passStatus: PasswordStatus
-    , delStatus: DeleteStatus
+    , passStatus: Status
+    , delStatus: Status
+    , mailStatus: Status
+    , codeStatus: Status
   }
 
 init: Nav.Key -> User.Model -> (Model, Cmd Msg)
 init key user =
-    (Model user key "" "" "" "" LoadingP NoneD, Cmd.none)
+    (Model user key "" "" "" "" Loading None Loading Loading, Cmd.none)
 
 type Msg
   = Empty
@@ -53,16 +54,11 @@ type Msg
   | ConfirmDelete
   | DeleteResponse (Result Http.Error())
 
-type PasswordStatus
-  = LoadingP
-  | SuccessP
-  | FailureP
-
-type DeleteStatus
-  = NoneD
-  | LoadingD
-  | FailureD
-  | SuccessD
+type Status
+  = Loading
+  | Success
+  | Failure
+  | None
 
 getModel: (Model, Cmd Msg) -> Model
 getModel (model, cmd) =
@@ -85,14 +81,18 @@ update msg model =
                 Ok bool ->
                     case bool of
                         True ->
-                            (model, Nav.reload) 
+                            ({ model | codeStatus = Success }, Nav.reload) 
                         False ->
-                            (model, Cmd.none)
+                            ({ model | codeStatus = Failure }, Cmd.none)
                 Err log ->
-                    (model, Cmd.none)
+                    ({ model | codeStatus = Failure }, Cmd.none)
 
-        MailResponse _ ->
-            (model, Cmd.none)
+        MailResponse response ->
+            case response of
+                Ok _ ->
+                    ({ model | mailStatus = Success }, Cmd.none)
+                Err _ ->
+                    ({ model | mailStatus = Failure }, Cmd.none)
 
         Code string ->
             ({ model | code = string }, Cmd.none)
@@ -107,7 +107,7 @@ update msg model =
             ({ model | newPasswordAgain = string }, Cmd.none)
 
         Delete ->
-            ({ model | delStatus = LoadingD }, Cmd.none)
+            ({ model | delStatus = Loading }, Cmd.none)
 
         ConfirmDelete ->
             (model, deleteAccount model)
@@ -118,16 +118,16 @@ update msg model =
         PasswordResponse response ->
             case response of
                 Ok _ ->
-                    ({ model | passStatus = SuccessP }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/sign_in" ] )
+                    ({ model | passStatus = Success }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/sign_in" ] )
                 Err _ ->
-                    ({ model | passStatus = FailureP }, Cmd.none)
+                    ({ model | passStatus = Failure }, Cmd.none)
 
         DeleteResponse response ->
             case response of
                 Ok _ ->
-                    ({ model | delStatus = SuccessD }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/" ])
+                    ({ model | delStatus = Success }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/" ])
                 Err _ ->
-                    ({ model | delStatus = FailureD }, Cmd.none)
+                    ({ model | delStatus = Failure }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -230,33 +230,33 @@ view model =
                 text "Change Password" 
             ]
             , case model.passStatus of
-                LoadingP ->
-                    text ""
-                FailureP ->
+                Failure ->
                     div[ class "alert alert-warning"
                     , style "width" "50%"
                     , style "margin" "auto" ][
                         text "Password change failed"
                     ]
-                SuccessP ->
+                Success ->
                     div[ class "alert alert-success"
                     , style "width" "50%"
                     , style "margin" "auto" ][
                         text "Password successfully changed"
                     ]
+                _ ->
+                    text ""
             , hr [] []
             , h3 [] [ text "Delete my account" ]
             , div [ class "help-block" ][ 
                 text "Press the following button if you wish to permanently delete your account. This will also delete your posts and comments!"
             ]
             , case model.delStatus of
-                NoneD ->
+                None ->
                     button [ class "btn btn-danger"
                     , style "margin-bottom" "15px"
                     , onClick Delete ][
                         text "Delete account" 
                     ]
-                LoadingD ->
+                Loading ->
                     div[ class "alert alert-danger form-group row"
                     , style "width" "50%"
                     , style "margin" "auto" ][
@@ -269,13 +269,13 @@ view model =
                             , onClick ConfirmDelete ][ text "Confirm" ]
                         ]
                     ]
-                FailureD ->
+                Failure ->
                     div[ class "alert alert-warning"
                     , style "width" "50%"
                     , style "margin" "auto" ][
                         text "Deleting account failed"
                     ]
-                _ ->
+                Success ->
                     text ""
         ]   
 
@@ -285,6 +285,21 @@ viewVerify model =
     h2 [ class "text-center" ] [ text "Verify your e-mail address" ]
     , div [ class "help-block" ] [ text ("Your account is not verified. We will send a verification mail to " ++ model.user.email) ]
     , button [ class "btn btn-primary", style "margin-bottom" "10px", onClick Request ] [ text "Send me the code" ]
+    , case model.mailStatus of
+        Failure ->
+            div [ class "alert alert-warning"
+            , style "width" "30%"
+            , style "margin" "auto" ][
+                text "Connection error"
+            ]
+        Success ->
+            div [ class "alert alert-success"
+            , style "width" "30%"
+            , style "margin" "auto" ][
+                text "Mail successfully sent"
+            ]
+        _ ->
+            text ""
     , div [ class "form-group row", style "width" "50%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
         div [ class "col-md-offset-2 col-md-8" ][
           div[][ 
@@ -293,6 +308,15 @@ viewVerify model =
                   , input [ id "verify", type_ "code", class "form-control", Html.Attributes.value model.code, onInput Code ] []
                   , button [ class "btn btn-primary", style "margin-top" "10px", onClick Verify ][ text "Verify" ]
                 ]
+                , case model.codeStatus of
+                    Failure ->
+                        div [ class "alert alert-warning"
+                        , style "width" "30%"
+                        , style "margin" "auto" ][
+                            text "Invalid code"
+                        ]
+                    _ ->
+                        text ""
           ]
         ]
     ]
@@ -357,8 +381,12 @@ requestMail email =
 
 verifyCode: Model -> Cmd Msg
 verifyCode model =
-    Http.post {
-      url = Server.url ++ "/account/verify"
-      , body = Http.jsonBody <| codeEncoder model
-      , expect = Http.expectJson VerifyResponse (field "response" Decode.bool)
+    Http.request {
+        method = "POST"
+        , headers = [ Http.header "auth" model.user.token ]
+        , url = Server.url ++ "/account/verify"
+        , body = Http.jsonBody <| codeEncoder model
+        , expect = Http.expectJson VerifyResponse (field "response" Decode.bool)
+        , timeout = Nothing
+        , tracker = Nothing
     }

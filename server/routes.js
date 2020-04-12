@@ -70,8 +70,20 @@ async function routes(fastify) {
         res.header("Access-Control-Allow-Origin", "*")  //allows sharing the resource
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db('database')
-        let insert = db.collection('accounts').insertOne(createAccount(req.body))
-        res.send({ response : "OK" })
+        let email = req.body.email
+        let username = req.body.username
+        let cursor = db.collection('accounts').findOne({ $or: [ { email: email }, { username: username } ] }, async function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                res.code(400).send(new Error("E-mail address or username are already taken!"))
+            }
+            else{    
+                let insert = db.collection('accounts').insertOne(createAccount(req.body))
+                res.send({ response : "OK" })
+            }
+        })
     })
 
     //used for validating log in creditentials
@@ -95,7 +107,7 @@ async function routes(fastify) {
         var cursor = await db.collection('accounts').updateOne(req.body, {$set: {verifCode: code}})
         client.close()
         sendActivationMail(req.body.email, code)
-        res.send({response: true})
+        res.code(200).send()
     })
 
     fastify.post('/account/verify', async(req, res) => {
@@ -103,16 +115,20 @@ async function routes(fastify) {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db('database')
+        let auth = req.headers.auth
         let username = req.body.username
-        let code = req.body.code
-        var cursor = await db.collection('accounts').find(req.body).toArray(async function(err, docs){
-            if(docs.length === 0){
-                console.log(docs)
-                res.send({response: false})
+        let code = req.body.verifCode
+        var cursor = await db.collection('accounts').findOne({token: auth, username: username, verifCode: code}, async function(err, result){
+            if(err){
+                console.log(err)
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                var temp = await db.collection('accounts').updateOne({token: auth}, {$set: {verif: true, verifCode: null}})
+                res.send({response: true})
             }
             else{
-                var temp = await db.collection('accounts').updateOne(req.body, {$set: {verif: true, verifCode: null}})
-                res.send({response: true})
+                res.send({response: false})
             }
         }) 
     })
@@ -122,18 +138,20 @@ async function routes(fastify) {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db('database')
-        var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
-            if(docs.length === 0){
-                res.code(400).send(new Error("Invalid creditentials"))
+        var cursor = await db.collection('accounts').findOne(req.body, function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
             }
-            else{
-                //hide properties that are not necessary/security risk!
-                delete docs[0]._id
-                delete docs[0].password
-                delete docs[0].verifCode
-                delete docs[0].secretKey
-                delete docs[0].twoFactor
-                res.send(docs[0])
+            else if(result){
+                delete result._id
+                delete result.password
+                delete result.verifCode
+                delete result.secretKey
+                delete result.twoFactor
+                res.send(result)
+            }
+            else{   
+                res.code(400).send(new Error("Invalid creditentials"))             
             }
         })
     })
@@ -141,18 +159,21 @@ async function routes(fastify) {
     fastify.get('/account/auth', async(req, res) => {
         let auth = req.headers.auth
         const db = client.db('database')
-        var cursor = await db.collection('accounts').find({token: auth}).toArray(function(err, docs){
-            if(docs.length === 0){
-                res.code(400).send(new Error("Invalid token"))
+        var cursor = await db.collection('accounts').findOne({token: auth}, function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                //hide properties that are not necessary/security risk!
+                delete result._id
+                delete result.password
+                delete result.verifCode
+                delete result.secretKey
+                delete result.twoFactor
+                res.send(result)
             }
             else{
-                //hide properties that are not necessary/security risk!
-                delete docs[0]._id
-                delete docs[0].password
-                delete docs[0].verifCode
-                delete docs[0].secretKey
-                delete docs[0].twoFactor
-                res.send(docs[0])
+                res.code(400).send(new Error("Invalid token"))
             }
         })
     })
@@ -163,11 +184,14 @@ async function routes(fastify) {
         let oldPass = req.body.oldPassword
         let newPass = req.body.newPassword
         var test = await db.collection('accounts').findOne({token: auth, password: oldPass}, async function(err, result) {
-            if (result) {
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if (result){
                 var cursor = await db.collection('accounts').updateOne({token: auth}, {$set:{password: newPass}})
                 res.code(200).send()
             } 
-            else {
+            else{
                 res.code(400).send(new Error("Invalid creditentials"))
             }
         })
@@ -179,13 +203,16 @@ async function routes(fastify) {
         let auth = req.headers.auth
         let password = req.body.password
         var user = await db.collection('accounts').findOne({token: auth, password: password}, async function(err, result) {
-            if (result) {
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            if (result){
                 var delAcc = await db.collection('accounts').deleteMany({token: auth, username: result.username})
                 var delImg = await db.collection('images').deleteMany({author: result.username})
                 var delComm = await db.collection('comments').deleteMany({username: result.username})
                 res.code(200).send()
             } 
-            else {
+            else{
                 res.code(400).send(new Error("Invalid creditentials"))
             }
         })
@@ -196,20 +223,22 @@ async function routes(fastify) {
         //return only public user info! input is username, returns
         let username = req.body.username
         const db = client.db('database')
-        var cursor = await db.collection('accounts').find({username: username}).toArray(function(err, docs){
-            if(docs.length === 0){
-                res.code(400).send(new Error("This profile does not exist"))
+        var cursor = await db.collection('accounts').findOne({username: username}, function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                delete result._id
+                delete result.password
+                delete result.verifCode
+                delete result.email
+                delete result.token
+                delete result.twoFactor
+                delete result.secretKey
+                res.send(result)
             }
             else{
-                //hide properties that are not necessary/security risk!
-                delete docs[0]._id
-                delete docs[0].password
-                delete docs[0].verifCode
-                delete docs[0].email
-                delete docs[0].token
-                delete docs[0].twoFactor
-                delete docs[0].secretKey
-                res.send(docs[0])
+                res.code(400).send(new Error("This profile does not exist"))
             }
         })
     })
@@ -241,14 +270,11 @@ async function routes(fastify) {
         //log this = user has updating his personal settings
         let auth = req.headers.auth
         let bio = req.body.bio
-        let firstName = req.body.firstName
-        let surname = req.body.surname
-        let occupation = req.body.occupation
         let facebook = req.body.facebook
         let twitter = req.body.twitter
         let github = req.body.github
         const db = client.db('database')
-        let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, firstName: firstName, surname: surname, occupation:occupation, facebook:facebook, twitter:twitter, github:github}})
+        let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, facebook:facebook, twitter:twitter, github:github}})
         res.code(200).send()
         //TODO Update all changes
     });
@@ -313,7 +339,7 @@ async function routes(fastify) {
                 const db = client.db('database')
                 console.log(`File stored to ${dir}/${filename}`)
                 var cursor = db.collection('accounts').updateOne({username: user}, {$set: {profilePic: link}})   
-                res.send({response: link}) //respond with updated image link! Don't need to, normal OK is fine now
+                res.code(200).send()
             }
           }
         )
@@ -379,10 +405,39 @@ async function routes(fastify) {
     })
 
     fastify.post('/images/id', async (req, res) => {  //image database
-        let id = req.body.id
         const db = client.db('database')
+        let auth = req.headers.auth
+        let id = req.body.id
+        /*
+        var bool = false
+        let username
+        var viewer = await db.collection('accounts').findOne({token:auth}, function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                username = result.username
+            }
+            else{
+                bool = false;
+            }
+        })*/
         var views = await db.collection('images').updateOne({id: id}, {$inc:{views: 1}})
         var cursor = await db.collection('images').findOne({id: id})
+        /*
+        var lookup = await db.collection('images').findOne({id: id, voters:{username: username}}, function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                bool = true
+            }
+            else{
+                bool = false
+            }
+        })
+        cursor.voters = bool
+        */
         delete cursor._id
         cursor.file = "http://localhost:3000/img/" + cursor.file
         res.send(cursor)
@@ -390,14 +445,49 @@ async function routes(fastify) {
 
     fastify.patch('/images/rate', async (req, res) => {
         //log this: user has rated an image
+        var username = null
+        let auth = req.headers.auth
         let id = req.body.id
-        let method = req.body.method
+        let vote = req.body.vote
         const db = client.db('database')
-        if (method == 1){
-            var cursor = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+        var cursor = await db.collection('accounts').findOne({token: auth}, function(err, result){
+            if(err){
+                res.code(500).send(new Error("Something went wrong on the server's side"))
+            }
+            else if(result){
+                username = result.username
+            }
+            else{
+                res.code(400).send(new Error("Unauthorized operation"))
+            }
+        })
+        if (vote === "upvote"){
+            var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+            var insert = await db.collection('images').updateOne({id: id}, {$push:{voters:{username: username, vote: vote}}})
         }
-        else if (method == -1){
-            var cursor = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+        else if (vote === "downvote"){
+            var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+            var insert = await db.collection('images').updateOne({id: id}, {$push:{voters:{username: username, vote: vote}}})
+        }
+        else if(vote === "veto"){
+            var find = await db.collection('images').findOne({username: username}, async function(err, result){
+                if(err){
+                    res.code(500).send(new Error("Something went wrong on the server's side")) 
+                }
+                else if(result){
+                    if(result.vote == "upvote"){
+                        var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+                    }
+                    else if(result.vote == "downvote"){
+                        var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+                    }
+                    var pull = await db.collection('images').updateOne({id: id}, {$pull:{voters:{username: username, vote:vote}}})
+                }
+                else{
+                    res.code(500).send(new Error("You have never rated this image"))
+                }
+            })
+            var insert = await db.collection('images').insertOne({$push:{username: username, vote: vote}})
         }
         else
             res.code(400).send(new Error("Invalid operation"))

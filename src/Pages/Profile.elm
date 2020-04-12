@@ -63,7 +63,7 @@ type Msg
   | Select
   | GotFile File
   | PostsResponse (Result Http.Error (List Image.Preview))
-  | AvatarResponse (Result Http.Error String)
+  | AvatarResponse (Result Http.Error())
   | Response (Result Http.Error User.Model)
   | LoadMore
 
@@ -120,7 +120,7 @@ update msg model =
 
     AvatarResponse response ->
         case response of
-            Ok string ->
+            Ok _ ->
                 (model, Nav.reload)
             Err log ->
                 (model, Cmd.none)
@@ -301,15 +301,7 @@ view model =
                     , case model.tab of
                         Information ->
                             div[ class "list-group" ][
-                                h3 [] [ text "Basic information" ]
-                                , div [ class "help-block" ][
-                                    text ("Here are some basic information about " ++ user.username) 
-                                ]
-                                , viewStringInfo user.firstName "First Name"
-                                , viewStringInfo user.surname "Last Name"
-                                , viewStringInfo user.occupation "Occupation"
-                                , hr [] []
-                                , h3 [] [ text "Account information" ]
+                                h3 [] [ text "Account information" ]
                                 , div [ class "help-block" ][ 
                                     text ("Here are some information about " ++ user.username ++ "'s account")
                                 ]
@@ -347,7 +339,7 @@ view model =
                                                     text ""
                                             ]
                             ]
-                            
+
                         Settings tab ->
                             SettingsTab.view tab |> Html.map SettingsMsg
 
@@ -371,7 +363,7 @@ put file user =
     , headers = [ Http.header "name" (File.name file), Http.header "user" user ]
     , url = Server.url ++ "/upload/profile"
     , body = Http.fileBody file 
-    , expect = Http.expectJson AvatarResponse ( field "response" Decode.string )
+    , expect = Http.expectWhatever AvatarResponse
     , timeout = Nothing
     , tracker = Nothing
     }
@@ -387,30 +379,6 @@ loadUser username =
     , timeout = Nothing
     , tracker = Nothing
     }
-
-viewStringInfo: Maybe String -> String -> Html Msg
-viewStringInfo attr name = 
-    let 
-        key = name ++ ": "
-    in
-        case attr of
-            Just value ->
-                div [ class "form-group row", style "width" "40%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
-                    div [ class "col-md-offset-2 col-md-8" ] [
-                        div[ class "form-group has-feedback" ][
-                            label [ for name ] [ text key ]
-                            , input [ id name
-                            , type_ "text"
-                            , style "text-align" "center"
-                            , readonly True, class "form-control"
-                            , placeholder value
-                            , style "background" "Transparent"
-                            , style "outline" "none" ] []
-                        ]
-                    ]
-                ]
-            Nothing ->
-                div [][]
 
 viewPost: Image.Preview -> Html Msg
 viewPost post =

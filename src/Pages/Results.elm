@@ -123,6 +123,10 @@ view model =
                         else
                             div[] (List.map User.showPreview users)
                     ]
+        , viewHeading "Tags" 0
+        , text "If you wanted to search for tags, click "
+        , a [ href ("/tags?q=" ++ model.query)
+        , class "preview" ][ text "here" ]
     ]
 
 viewHeading: String -> Int -> Html msg

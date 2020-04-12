@@ -30,12 +30,8 @@ import ElmLogo as Logo
 import Svg
 import Svg.Attributes as SvgAttrs
 
---import Components.SingUp as SignUp
-
---97, 113, 181?
-
 --usage - type the following command into terminal (need to install elm-live)
---elm-live src/Main.elm --open -- --output=elm.js (will start server on localhost)
+--elm-live src/Main.elm --u -- --output=elm.js (will start server on localhost with pushstate enabled)
 
 -- MAIN
 
@@ -66,7 +62,6 @@ type Page
   = NotFound String
   | Loading
   | Gallery Gallery.Model
-  --under here SignUp (SignUp.Model, Cmd SignUp.Msg)
   | SignUp SignUp.Model
   | SignIn SignIn.Model
   | Upload Upload.Model
@@ -389,6 +384,7 @@ viewHeader model =
             , li [] [ a [ href "/users?page=1", case model.page of 
               Users _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Users" ] ]
+            , li [] [ a [ href "/tags" ] [ text "Tags"] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
         ]
         
@@ -403,7 +399,7 @@ viewHeader model =
                   _ -> style "" "" ] [ span [class "glyphicon glyphicon-user"][], text " Sign Up"] ]
               ]
             Just user ->
-             ul [ class "nav navbar-nav navbar-right" ] [
+             ul [ class "nav navbar-nav navbar-right" ][
               li [][
                 img [ class "avatar"
                 , attribute "draggable" "false"
@@ -463,7 +459,6 @@ routeUrl url model =
   let
     parser =
       oneOf   --rerouting based on url change!
-        --TODO : add sorting to url!
         [ route (s "gallery" <?> Query.int "page" <?> Query.string "sort")
             ( 
               \page sort -> stepGallery model (Gallery.init (getUser model.state) model.key page sort)

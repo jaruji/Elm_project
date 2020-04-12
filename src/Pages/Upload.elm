@@ -1,6 +1,7 @@
 module Pages.Upload exposing (..)
 import Browser
 import Browser.Navigation as Nav
+import Browser.Dom as Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -35,10 +36,11 @@ type alias Model =
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model False "" key user "" [] 0 "" "" "" Loading "" NotLoaded, Cmd.none)
+  (Model False "" key user "" [] 0 "" "" "" Loading "" NotLoaded, Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
 
 type Msg
   = Pick
+  | Empty
   | Title String
   | Description String
   | DragEnter
@@ -66,6 +68,8 @@ type FileStatus
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
+    Empty ->
+      (model, Cmd.none)
     Pick -> 
       (model, Select.file ["image/*", "application/pdf"] GotFiles)
 

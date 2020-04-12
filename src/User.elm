@@ -20,9 +20,6 @@ type alias Model =
     , avatar: String
     , bio: String
     , verif: Bool
-    , firstName: Maybe String
-    , surname: Maybe String
-    , occupation: Maybe String
     , facebook: Maybe String
     , twitter: Maybe String
     , github: Maybe String
@@ -66,9 +63,6 @@ decodeUser =
         |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
         |> optional "bio" Decode.string "No description"
         |> required "verif" Decode.bool
-        |> required "firstName" (nullable Decode.string)
-        |> required "surname" (nullable Decode.string)
-        |> required "occupation" (nullable Decode.string)
         |> required "facebook" (nullable Decode.string)
         |> required "twitter" (nullable Decode.string)
         |> required "github" (nullable Decode.string)
@@ -85,9 +79,6 @@ decodeUserNotLoggedIn =
         |> optional "profilePic" Decode.string (Server.url ++ "/img/profile/default.jpg")
         |> optional "bio" Decode.string "No description"
         |> required "verif" Decode.bool
-        |> required "firstName" (nullable Decode.string)
-        |> required "surname" (nullable Decode.string)
-        |> required "occupation" (nullable Decode.string)
         |> required "facebook" (nullable Decode.string)
         |> required "twitter" (nullable Decode.string)
         |> required "github" (nullable Decode.string)
