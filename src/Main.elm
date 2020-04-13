@@ -365,9 +365,11 @@ viewHeader model =
         div [ class "navbar-header" ][
           div [ class "navbar-brand" ][ 
             --viewImage "assets/Elm_logo.svg.png" 35 35 
-            Svg.svg [ SvgAttrs.width "35"
-            , SvgAttrs.viewBox "0 0 35 35" ][ 
-              Logo.svg 35 
+            a [ href "/", class "preview" ][
+              Svg.svg [ SvgAttrs.width "35"
+              , SvgAttrs.viewBox "0 0 35 35" ][ 
+                Logo.svg 35 
+              ]
             ]
           ]
         ]

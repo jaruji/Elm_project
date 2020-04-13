@@ -16,11 +16,16 @@ type alias Model =
     source: Array String
     , current: Int
     , dir: Direction
+    , counter: Count
   }
 
 type Direction
   = Right
   | Left
+
+type Count
+  = Stop
+  | Start
 
 init : Array String -> Model
 init imgs =
@@ -28,6 +33,7 @@ init imgs =
     source = imgs
     , current = 0
     , dir = Right
+    , counter = Start
   }
 
 --Update
@@ -35,19 +41,27 @@ init imgs =
 type Msg
     = SwitchRight Int
     | SwitchLeft Int
+    | Jump Int
+    | Reset
 
 update : Msg -> Model -> Model
 update msg model =
   case msg of
     SwitchRight i ->
       ({ model | current = handle (i + 1) model
-         , dir = Right
+         , dir = Right, counter = Stop
       })
 
     SwitchLeft i -> 
       ({ model | current = handle (i - 1) model
-         , dir = Left
+         , dir = Left, counter = Stop
       })
+
+    Jump i ->
+      ({ model | current = i, counter = Stop}) 
+
+    Reset ->
+      ({ model | counter = Start })
 
 handle : Int -> Model -> Int
 handle current model =
@@ -99,32 +113,40 @@ view model =
               Icons.chevronRight |> Icons.withSize 80 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
             ]
           ]
-          , div [ style "margin-top" "900px" ] (Array.toList (Array.map viewBullet model.source ))
+          , div [ style "margin-top" "900px" ] (Array.toList (Array.indexedMap (viewBullet model) model.source ))
         ]
     Nothing ->
       div[][]
 
 
-viewBullet: String -> Html msg
-viewBullet string = 
+viewBullet:  Model -> Int -> String -> Html Msg
+viewBullet model index string = 
   button[ style "outline" "none" 
   , style "border" "none"
   , style "background" "Transparent"
   , style "opacity" "0.7"
   , style "color" "white"
   , style "position" "relative"
+  , onClick (Jump index)
   ][
-    Icons.circle |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+    if model.current == index then
+      Icons.xCircle |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
+    else
+      Icons.circle |> Icons.withSize 20 |> Icons.withStrokeWidth 3 |> Icons.toHtml [] 
   ]
 
 subscriptions: Model -> Sub Msg
 subscriptions model =
-  Time.every 5000 (\_ ->
-    (
-    case model.dir of
-      Right -> 
-        SwitchRight model.current
-      Left ->
-        SwitchLeft model.current
-    )
-  )
+  case model.counter of
+    Start ->
+      Time.every 5000 (\_ ->
+        (
+        case model.dir of
+          Right -> 
+            SwitchRight model.current
+          Left ->
+            SwitchLeft model.current
+        )
+      )
+    Stop ->
+      Time.every 1000 (\_ -> Reset)

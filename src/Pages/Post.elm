@@ -195,7 +195,7 @@ view model =
                     --
                     --STATS HERE
                     --
-                    , h3 [][ b[] [ text "Stats"] ]
+                    , h3 [][ text "Stats" ]
                     , hr [ style "width" "50%" 
                     , style "margin" "auto"
                     , style "margin-top" "5px" ][]
@@ -230,7 +230,7 @@ view model =
                                 ]
                     ]
                     , br [][]
-                    , br [][]
+                    , h3 [][ text "Rate" ]
                     , case model.vote of
                             LoadingVote ->
                                 text "Loading vote"
@@ -277,7 +277,7 @@ view model =
                                 ]
                     
                     , h3 [][
-                        b[][ text "Description" ]
+                        text "Description"
                     ]
                     , p [ style "font-size" "16px"
                     , style "max-width" "600px"
@@ -286,17 +286,19 @@ view model =
                             "No description" ->
                                 div [ style "font-style" "italic" ][ text image.description ]
                             _ -> 
-                                Markdown.toHtml [ class "content" ] image.description
+                                div[style "font-style" "italic"][
+                                    Markdown.toHtml [] image.description
+                                ]
                     ]
                     , case List.isEmpty image.tags of
                         True ->
                             div[][
-                                h3 [] [ b[][ text "Tags" ] ]
+                                h3 [] [ text "Tags" ]
                                 , div [ style "font-style" "italic" ] [ text "No tags" ]
                             ]
                         False ->
                             div[][
-                                h3 [] [ b[][ text "Tags" ] ]
+                                h3 [] [ text "Tags"]
                                 , div [ style "max-width" "600px"
                                 , style "margin" "auto"
                                 , style "margin-top" "10px" ]
