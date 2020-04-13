@@ -17,14 +17,10 @@ function createAccount(obj){
     obj.profilePic = null
     obj.history = null
     obj.bio = null
-    obj.firstName = null
-    obj.surname = null
-    obj.occupation = null
     obj.facebook = null
     obj.twitter = null
     obj.github = null
     obj.registeredAt = new Date()
-    obj.age = null
     obj.twoFactor = false
     obj.secretKey = null
     obj.token = crypto.randomBytes(48).toString('hex')
@@ -34,6 +30,7 @@ function createAccount(obj){
 function createImage(obj){
     obj.points = 0
     obj.views = 0
+    obj.favorites = 0
     obj.uploaded = new Date()
     return obj
 }
@@ -274,7 +271,7 @@ async function routes(fastify) {
         let twitter = req.body.twitter
         let github = req.body.github
         const db = client.db('database')
-        let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, facebook:facebook, twitter:twitter, github:github}})
+        let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, facebook:facebook, twitter:twitter, github:github, updatedAt: new Date()}})
         res.code(200).send()
         //TODO Update all changes
     });
@@ -408,89 +405,102 @@ async function routes(fastify) {
         const db = client.db('database')
         let auth = req.headers.auth
         let id = req.body.id
-        /*
-        var bool = false
         let username
-        var viewer = await db.collection('accounts').findOne({token:auth}, function(err, result){
-            if(err){
-                res.code(500).send(new Error("Something went wrong on the server's side"))
-            }
-            else if(result){
-                username = result.username
-            }
-            else{
-                bool = false;
-            }
-        })*/
         var views = await db.collection('images').updateOne({id: id}, {$inc:{views: 1}})
         var cursor = await db.collection('images').findOne({id: id})
-        /*
-        var lookup = await db.collection('images').findOne({id: id, voters:{username: username}}, function(err, result){
-            if(err){
-                res.code(500).send(new Error("Something went wrong on the server's side"))
-            }
-            else if(result){
-                bool = true
-            }
-            else{
-                bool = false
-            }
-        })
-        cursor.voters = bool
-        */
         delete cursor._id
         cursor.file = "http://localhost:3000/img/" + cursor.file
         res.send(cursor)
     })
 
-    fastify.patch('/images/rate', async (req, res) => {
+    fastify.post('/images/stats', async (req, res) => {
+        const db = client.db('database')
+        let id = req.body.id
+        var cursor = await db.collection('images').findOne({id: id})
+        delete cursor._id
+        delete cursor.file
+        delete cursor.id
+        delete cursor.description
+        delete cursor.author
+        delete cursor.tags
+        delete cursor.uploaded
+        delete cursor.title
+        res.send(cursor)
+    })
+
+    fastify.post('/images/getVote', async (req, res) => {
+        const db = client.db('database')
+        let id = req.body.id
+        let auth = req.headers.auth
+        var user = await db.collection('accounts').findOne({token: auth}, async function(err, result){
+            if(err){
+                res.code(500).send()
+            }
+            else if(result){
+                var cursor = await db.collection('votes').findOne({id: id, username: result.username}, function(err, result){
+                    if(err){
+                        res.code(500).send()
+                    }
+                    else if(result){
+                        res.send({vote: result.vote})
+                    }
+                    else{
+                        res.send({vote: "none"})
+                    }
+                })
+            }
+            else{
+                res.send({vote: "invalid"})
+            }
+        })
+    })
+
+    fastify.post('/images/rate', async (req, res) => {
         //log this: user has rated an image
-        var username = null
         let auth = req.headers.auth
         let id = req.body.id
         let vote = req.body.vote
         const db = client.db('database')
-        var cursor = await db.collection('accounts').findOne({token: auth}, function(err, result){
+        var cursor = await db.collection('accounts').findOne({token: auth}, async function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
             }
             else if(result){
-                username = result.username
-            }
-            else{
-                res.code(400).send(new Error("Unauthorized operation"))
-            }
-        })
-        if (vote === "upvote"){
-            var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
-            var insert = await db.collection('images').updateOne({id: id}, {$push:{voters:{username: username, vote: vote}}})
-        }
-        else if (vote === "downvote"){
-            var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
-            var insert = await db.collection('images').updateOne({id: id}, {$push:{voters:{username: username, vote: vote}}})
-        }
-        else if(vote === "veto"){
-            var find = await db.collection('images').findOne({username: username}, async function(err, result){
-                if(err){
-                    res.code(500).send(new Error("Something went wrong on the server's side")) 
+                let username = result.username
+                if (vote === "upvote"){
+                    var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+                    var insert = await db.collection('votes').updateOne({id: id, username: username}, {$set:{id: id, username: username, vote: vote }}, {upsert: true})
                 }
-                else if(result){
-                    if(result.vote == "upvote"){
-                        var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+                else if (vote === "downvote"){
+                    var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+                    var insert = await db.collection('votes').updateOne({id: id, username: username}, {$set:{id: id, username: username, vote: vote }}, {upsert: true})
+                }
+                else if(vote === "veto"){
+                    var find = await db.collection('votes').findOne({id: id, username: username}, async function(err, result){
+                        if(err){
+                            res.code(500).send(new Error("Something went wrong on the server's side")) 
+                        }
+                        else if(result){
+                            if(result.vote == "upvote"){
+                                var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
+                            }
+                            else if(result.vote == "downvote"){
+                                var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+                            }
+                            var del = await db.collection('votes').deleteOne({id: id, username: username})
+                        }
+                        else{
+                            res.code(500).send(new Error("You have never rated this image"))
+                        }
+                    })
+                }
+                else
+                    res.code(400).send(new Error("Invalid operation"))
                     }
-                    else if(result.vote == "downvote"){
-                        var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
+                    else{
+                        res.code(400).send(new Error("Unauthorized operation"))
                     }
-                    var pull = await db.collection('images').updateOne({id: id}, {$pull:{voters:{username: username, vote:vote}}})
-                }
-                else{
-                    res.code(500).send(new Error("You have never rated this image"))
-                }
-            })
-            var insert = await db.collection('images').insertOne({$push:{username: username, vote: vote}})
-        }
-        else
-            res.code(400).send(new Error("Invalid operation"))
+                })
         res.code(200).send()
     })
 

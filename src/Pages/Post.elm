@@ -17,6 +17,7 @@ import FeatherIcons as Icons
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Image
 import Image.Comment as Comment
+import Image.Stats as Stats
 import Tag
 import TimeFormat
 import Markdown
@@ -29,6 +30,8 @@ type alias Model =
     , comments: CommentStatus
     , comment: String
     , id: String
+    , stats: StatsStatus
+    , vote: VoteStatus
   }
 
 type Status
@@ -36,10 +39,20 @@ type Status
   | Success Image.Model
   | Failure
 
+type VoteStatus
+  = LoadingVote
+  | FailureVote
+  | SuccessVote String
+
 type CommentStatus
   = LoadingComments
   | SuccessComments (List Comment.Model)
   | FailureComments
+
+type StatsStatus
+  = LoadingStats
+  | SuccessStats Stats.Model
+  | FailureStats
 
 
 type Msg
@@ -47,6 +60,8 @@ type Msg
   | LoadComments (Result Http.Error (List Comment.Model))
   | CommentResponse (Result Http.Error())
   | RateResponse (Result Http.Error())
+  | StatsResponse (Result Http.Error(Stats.Model))
+  | VoteResponse (Result Http.Error String)
   | Comment String
   | Submit
   | Upvote
@@ -56,11 +71,12 @@ type Msg
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" ""
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote
     , Cmd.batch [
         post fragment user
+        , getVote fragment user
         , loadComments fragment
-        , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) 
+        , Task.perform (\_ -> Empty) (Dom.setViewport 0 0)
     ])
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -71,7 +87,7 @@ update msg model =
         Response response ->
             case response of
                 Ok image ->
-                    ({ model | status = Success image, id = image.id }, Cmd.none)
+                    ({ model | status = Success image, id = image.id }, loadStats model.id)
                 Err _ ->
                     ({ model | status = Failure }, Cmd.none)
 
@@ -90,10 +106,28 @@ update msg model =
                     (model, Cmd.none)
 
         RateResponse response ->
-            (model, Cmd.none)
+            case response of
+                Ok _ ->
+                    (model, Cmd.batch [loadStats model.id, getVote model.id model.user])
+                Err log ->
+                    (model, Cmd.none)
+
+        StatsResponse response ->
+            case response of
+                Ok stats ->
+                    ({ model | stats = SuccessStats stats }, Cmd.none)
+                Err _ ->
+                    ({ model | stats = FailureStats }, Cmd.none)
 
         Comment string ->
             ({ model | comment = string }, Cmd.none)
+
+        VoteResponse response ->
+            case response of
+                Ok string -> 
+                    ({ model | vote = SuccessVote string }, Cmd.none)
+                Err log ->
+                    ({ model | vote = FailureVote }, Cmd.none)
 
         Submit ->
             case model.user of
@@ -133,7 +167,7 @@ view model =
                     div[][
                         h1[ style "max-width" "1000px"
                         , style "margin" "auto" ][ text image.title ]
-                        , h4 [ class "float-right" ] [
+                        , h4 [ class "float-right" ][
                             text "Uploaded by "
                             , a [ href ("/profile/" ++ image.author) ][ text image.author ]
                             , text (" on " ++ TimeFormat.formatTime image.uploaded) 
@@ -146,6 +180,9 @@ view model =
                     , img [ src image.url
                     , style "max-width" "1400px"
                     , style "max-height" "1500px" ] []
+                    --
+                    --STATS HERE
+                    --
                     , h3 [][ b[] [ text "Stats"] ]
                     , hr [ style "width" "50%" 
                     , style "margin" "auto"
@@ -153,34 +190,80 @@ view model =
                     , div [ style "width" "50%"
                     , style "margin" "auto"
                     , style "margin-top" "10px" ][
-                        span [ class "col-sm-4"
-                        , title "Views" ][
-                          Icons.eye |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                          , b [ style "margin-left" "5px"
-                          , style "font-size" "15px" ][ text (String.fromInt image.views) ]
-                        ]
-                        , span [ class "col-sm-4"
-                        , title "Points" ][
-                          Icons.award |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                          , b [ style "margin-left" "5px"
-                          , style "font-size" "15px" ][ text (String.fromInt image.points) ]
-                        ]
-                        , span [ class "col-sm-4"
-                        , title "Favourites" ][
-                          Icons.heart |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                          , b [ style "margin-left" "5px"
-                          , style "font-size" "15px" ][ text (String.fromInt 0) ]
-                        ]
+                        case model.stats of
+                            LoadingStats ->
+                                text "Loading..."
+                            FailureStats ->
+                                text "Failed to load stats"
+                            SuccessStats stats ->
+                                div[][
+                                    span [ class "col-sm-4"
+                                    , title "Views" ][
+                                      Icons.eye |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                                      , b [ style "margin-left" "5px"
+                                      , style "font-size" "15px" ][ text (String.fromInt stats.views) ]
+                                    ]
+                                    , span [ class "col-sm-4"
+                                    , title "Points" ][
+                                      Icons.award |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                                      , b [ style "margin-left" "5px"
+                                      , style "font-size" "15px" ][ text (String.fromInt stats.points) ]
+                                    ]
+                                    , span [ class "col-sm-4"
+                                    , title "Favourites" ][
+                                      Icons.heart |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
+                                      , b [ style "margin-left" "5px"
+                                      , style "font-size" "15px" ][ text (String.fromInt stats.favorites) ]
+                                    ]
+                                ]
                     ]
                     , br [][]
-                    {--
-                    , div[][
-                        button [ class "btn btn-primary" 
-                        , onClick Upvote ][ text "Upvote" ]
-                        , button [ class "btn btn-primary" 
-                        , onClick Downvote ][ text "Downvote" ]
-                    ]
-                    --}
+                    , br [][]
+                    , case model.vote of
+                            LoadingVote ->
+                                text "Loading vote"
+                            FailureVote ->
+                                text "Failed to load vote"
+                            SuccessVote string ->
+                                div[][
+                                    button [ style "background" "Transparent"
+                                    , style "border" "none"
+                                    , style "color" "black"
+                                    , class "preview"
+                                    , style "outline" "none"
+                                    , case string of
+                                        "upvote" ->
+                                            style "color" "green"
+                                            --, onClick Veto
+                                        "invalid" ->
+                                            disabled True
+                                        "none" ->
+                                            onClick Upvote
+                                        "downvote" ->
+                                            onClick Veto
+                                        _ ->
+                                            style "" ""
+                                    ][ Icons.arrowUpCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 1 |> Icons.toHtml [] ]
+                                    , button [ style "background" "Transparent"
+                                    ,  style "border" "none"
+                                    , style "color" "black"
+                                    , class "preview"
+                                    , style "outline" "none"
+                                    , case string of
+                                        "downvote" ->
+                                            style "color" "red"
+                                            --, onClick Veto
+                                        "invalid" ->
+                                            disabled True
+                                        "none" ->
+                                            onClick Downvote
+                                        "upvote" ->
+                                            onClick Veto
+                                        _ ->
+                                            style "" ""
+                                    ][ Icons.arrowDownCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 1 |> Icons.toHtml [] ]
+                                ]
+                    
                     , h3 [][
                         b[][ text "Description" ]
                     ]
@@ -191,7 +274,7 @@ view model =
                             "No description" ->
                                 div [ style "font-style" "italic" ][ text image.description ]
                             _ -> 
-                                i [] [ text image.description ]
+                                Markdown.toHtml [ class "content" ] image.description
                     ]
                     , case List.isEmpty image.tags of
                         True ->
@@ -282,23 +365,6 @@ viewComment comment =
             div [ class "help-block" ] [
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
                 , text ( " on " ++ (TimeFormat.formatTime comment.date))
-                --, text  (" " ++ String.fromInt comment.points ++ " points")
-                {--
-                , button [ style "color" "red"
-                , class "pull-right"
-                , style "height" "20px"
-                , style "width" "20px"
-                , style "border" "none"
-                , style "background" "Transparent"
-                , style "outline" "none" ][ span [ class "glyphicon glyphicon-remove" ] [] ]  
-                , button [ style "color" "lightgreen"
-                , class "pull-right"
-                , style "height" "20px"
-                , style "width" "20px"
-                , style "border" "none"
-                , style "background" "Transparent"
-                , style "outline" "none" ][ span [ class "glyphicon glyphicon-pencil" ] [] ]
-                --}
             ]
         ]
         , div[][
@@ -330,7 +396,7 @@ rate: Model -> String -> Cmd Msg
 rate model vote = 
     Http.request
     {
-        method = "PATCH"
+        method = "POST"
         , headers = case model.user of
             Just user ->
                 [ Http.header "auth" user.token ]
@@ -361,19 +427,47 @@ postComment id username content =
         , expect = Http.expectWhatever CommentResponse
       }
 
-post : String -> Maybe User.Model -> Cmd Msg
+post: String -> Maybe User.Model -> Cmd Msg
 post id user =
     Http.request
       {   
         method = "POST"
-        , headers = case user of
-            Just usr ->
-                [ Http.header "auth" usr.token ]
-            Nothing ->
-                []
+        , headers = []
         , url = Server.url ++ "/images/id"
         , body = Http.jsonBody <| encodeID id
         , expect = Http.expectJson Response Image.decodeImage
+        , timeout = Nothing
+        , tracker = Nothing
+      }
+
+loadStats: String -> Cmd Msg
+loadStats id =
+    Http.request
+      {   
+        method = "POST"
+        , headers = []
+        , url = Server.url ++ "/images/stats"
+        , body = Http.jsonBody <| encodeID id
+        , expect = Http.expectJson StatsResponse Stats.statsDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+      }
+
+getVote: String -> Maybe User.Model -> Cmd Msg
+getVote id mbyUser =
+    Http.request
+      {   
+        method = "POST"
+        , headers = [
+            case mbyUser of 
+                Just user ->
+                    Http.header "auth" user.token
+                Nothing ->
+                    Http.header "auth" ""
+        ]
+        , url = Server.url ++ "/images/getVote"
+        , body = Http.jsonBody <| encodeID id
+        , expect = Http.expectJson VoteResponse (field "vote" Decode.string)
         , timeout = Nothing
         , tracker = Nothing
       }
