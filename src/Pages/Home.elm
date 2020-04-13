@@ -37,7 +37,7 @@ type Status
 init: Maybe User.Model -> Nav.Key -> ( Model, Cmd Msg )
 init user key =
   ( 
-    Model key (Carousel.init (Array.fromList [ "assets/1.jpg", "assets/2.jpg", "assets/3.jpg", "assets/4.jpg" ]))
+    Model key (Carousel.init (Array.fromList [ "assets/1.jpg", "assets/2.jpg", "assets/3.jpg", "assets/4.jpg", "assets/7.jpg" ]))
     user Loading , getLatest
   )
 

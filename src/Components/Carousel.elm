@@ -127,6 +127,7 @@ viewBullet model index string =
   , style "opacity" "0.7"
   , style "color" "white"
   , style "position" "relative"
+  , class "preview"
   , onClick (Jump index)
   ][
     if model.current == index then

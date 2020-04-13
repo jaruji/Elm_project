@@ -32,6 +32,7 @@ type alias Model =
     , id: String
     , stats: StatsStatus
     , vote: VoteStatus
+    , editing: String
   }
 
 type Status
@@ -62,10 +63,12 @@ type Msg
   | RateResponse (Result Http.Error())
   | StatsResponse (Result Http.Error(Stats.Model))
   | VoteResponse (Result Http.Error String)
-  | DeleteCommentResponse (Result Http.Error())
+  | ManageCommentResponse (Result Http.Error())
   | Comment String
   | Submit
   | DeleteComment String
+  | Edit String
+  | ConfirmEdit String String
   | Upvote
   | Downvote
   | Veto
@@ -73,7 +76,7 @@ type Msg
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote ""
     , Cmd.batch [
         post fragment user
         , getVote fragment user
@@ -127,7 +130,7 @@ update msg model =
         DeleteComment id ->
             (model, deleteComment id)
 
-        DeleteCommentResponse response ->
+        ManageCommentResponse response ->
             case response of
                 Ok _ ->
                     (model, loadComments model.id)
@@ -159,6 +162,12 @@ update msg model =
 
         Veto ->
             (model, rate model "veto")
+
+        Edit string ->
+            (model, Cmd.none)
+
+        ConfirmEdit id comment ->
+            ({ model | editing = "" }, editComment id comment)
 
 view: Model -> Html Msg
 view model =
@@ -208,26 +217,7 @@ view model =
                             FailureStats ->
                                 text "Failed to load stats"
                             SuccessStats stats ->
-                                div[][
-                                    span [ class "col-sm-4"
-                                    , title "Views" ][
-                                      Icons.eye |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                                      , b [ style "margin-left" "5px"
-                                      , style "font-size" "15px" ][ text (String.fromInt stats.views) ]
-                                    ]
-                                    , span [ class "col-sm-4"
-                                    , title "Points" ][
-                                      Icons.award |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                                      , b [ style "margin-left" "5px"
-                                      , style "font-size" "15px" ][ text (String.fromInt stats.points) ]
-                                    ]
-                                    , span [ class "col-sm-4"
-                                    , title "Favourites" ][
-                                      Icons.heart |> Icons.withSize 20 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
-                                      , b [ style "margin-left" "5px"
-                                      , style "font-size" "15px" ][ text (String.fromInt stats.favorites) ]
-                                    ]
-                                ]
+                                Stats.view stats
                     ]
                     , br [][]
                     , h3 [][ text "Rate" ]
@@ -241,8 +231,9 @@ view model =
                                     button [ style "background" "Transparent"
                                     , style "border" "none"
                                     , style "color" "black"
-                                    , class "preview"
+                                    , class "social"
                                     , style "outline" "none"
+                                    , style "transition" "all 0.3s ease 0s"
                                     , case string of
                                         "upvote" ->
                                             style "color" "green"
@@ -259,8 +250,9 @@ view model =
                                     , button [ style "background" "Transparent"
                                     ,  style "border" "none"
                                     , style "color" "black"
-                                    , class "preview"
+                                    , class "social"
                                     , style "outline" "none"
+                                    , style "transition" "all 0.3s ease 0s"
                                     , case string of
                                         "downvote" ->
                                             style "color" "red"
@@ -287,7 +279,7 @@ view model =
                                 div [ style "font-style" "italic" ][ text image.description ]
                             _ -> 
                                 div[style "font-style" "italic"][
-                                    Markdown.toHtml [] image.description
+                                    {--Markdown.toHtml []--} text image.description
                                 ]
                     ]
                     , case List.isEmpty image.tags of
@@ -351,7 +343,9 @@ view model =
                         , style "width" "30%" 
                         , style "margin" "auto"
                         , style "margin-top" "20px" ][
-                            text "You must be logged in to comment"
+                            text "You must be "
+                            , a [ href "/sign_in" ][ text "signed in" ]
+                            , text " to comment"
                         ]
                 , div [ class "row"
                 , style "margin-top" "100px" ][]
@@ -384,19 +378,22 @@ viewComment mbyUser comment =
                         if user.username == comment.username then
                             span[][
                                 button [ style "color" "red"
-                                , class "pull-right"
+                                , style "transition" "all 0.3s ease 0s"
+                                , class "pull-right social"
                                 , style "height" "20px"
                                 , style "width" "20px"
                                 , style "border" "none"
                                 , style "background" "Transparent"
                                 , onClick (DeleteComment comment.id)
-                                , style "outline" "none" ][ span [ class "glyphicon glyphicon-remove" ] [] ]  
+                                , style "outline" "none" ][ span [ class "glyphicon glyphicon-trash" ] [] ]  
                                 , button [ style "color" "#3b5998"
-                                , class "pull-right"
+                                , style "transition" "all 0.3s ease 0s"
+                                , class "pull-right social"
                                 , style "height" "20px"
                                 , style "width" "20px"
                                 , style "border" "none"
                                 , style "background" "Transparent"
+                                , onClick (Edit comment.id)
                                 , style "outline" "none" ][ span [ class "glyphicon glyphicon-pencil" ] [] ]
                             ]
                         else
@@ -465,6 +462,26 @@ postComment id username content =
         , expect = Http.expectWhatever CommentResponse
       }
 
+encodeEdit: String -> String -> Encode.Value
+encodeEdit id comment =
+    Encode.object[
+        ("id", Encode.string id)
+        , ("comment", Encode.string comment)
+    ]
+
+editComment: String -> String -> Cmd Msg
+editComment id comment =
+    Http.request
+      {   
+        method = "PATCH"
+        , headers = []
+        , url = Server.url ++ "/comment/edit"
+        , body = Http.jsonBody <| encodeEdit id comment
+        , expect = Http.expectWhatever ManageCommentResponse
+        , timeout = Nothing
+        , tracker = Nothing
+      }
+
 deleteComment: String -> Cmd Msg
 deleteComment id =
     Http.request
@@ -473,7 +490,7 @@ deleteComment id =
         , headers = []
         , url = Server.url ++ "/comment/delete"
         , body = Http.jsonBody <| encodeID id
-        , expect = Http.expectWhatever DeleteCommentResponse
+        , expect = Http.expectWhatever ManageCommentResponse
         , timeout = Nothing
         , tracker = Nothing
       }

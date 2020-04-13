@@ -511,21 +511,46 @@ async function routes(fastify) {
         let username = req.body.username
         let id = req.body.id
         const db = client.db('database')
-        let avatar = await db.collection('accounts').findOne({username:username})
-        avatar = avatar.profilePic
-        var cursor = await db.collection('comments').insertOne({content: content, username: username, imageID: id, uploaded: new Date(), points: 0, avatar: avatar})
+        var cursor = await db.collection('comments').insertOne({content: content, username: username, imageID: id, uploaded: new Date(), points: 0 })
         res.code(200).send()
     })
 
     fastify.post('/comment/get', async (req, res) => {
         let id = req.body.id
         const db = client.db('database')
-        var cursor = await db.collection('comments').find({imageID: id}).toArray()
-        res.send(cursor)
+        var cursor = await db.collection('comments').find({imageID: id}).toArray( async function(err, results){
+            if(err){
+                res.code(500).send()
+            }
+            else if(results){
+                for(let i = 0; i < results.length; i++){
+                    var user = await db.collection('accounts').findOne({username: results[i].username}, function(err, result){
+                        if(err){
+                            res.code(500).send()
+                        }
+                        else if(result){
+                            results[i].avatar = result.profilePic
+                            if(i === results.length - 1)
+                                res.send(results)
+                        }
+                        else{
+                            res.code(400).send()
+                        }
+                    })
+                }
+            }
+            else{
+                res.code(400).send(new Error("Image with this ID does not exist"))
+            }
+        })
     })
 
     fastify.patch('/comment/edit', async (req, res) => {
-
+        let content = req.body.content
+        let id = req.body.id
+        const db = client.db('database')
+        var cursor = await db.collection('comments').updateOne({_id: ObjectId(id)}, {$set:{content: content}})
+        res.code(200).send()
     })
 
     fastify.delete('/comment/delete', async (req, res) => {
