@@ -38,8 +38,6 @@ type Msg
     | SortNewest
     | SortPopular
     | SortTop
-    | Next
-    | Previous
     | Empty
 
 
@@ -80,18 +78,7 @@ update msg model =
 
         SortTop ->
           ({ model | status = Loading, sort = "rating" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=rating") )
-
-        Next ->
-          ({ model | page = model.page + 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page + 1), Url.string "sort" model.sort ])
-          , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
-
-        Previous ->
-          if model.page /= 1 then
-            ({ model | page = model.page - 1 }, Cmd.batch [ Nav.pushUrl model.key (Url.relative [ "gallery" ] [ Url.int "page" (model.page - 1), Url.string "sort" model.sort ])
-            , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
-          else
-            (model, Cmd.none)
-
+    
 view : Model -> Html Msg
 view model =
   div[][
@@ -168,16 +155,25 @@ view model =
                 , style "border" "none" ]
                   (List.map Image.showPreview images)
                 , div [ style "margin-top" "20px" ] [
-                  div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
-                  , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
-                    span [ class "glyphicon glyphicon-chevron-left" ] [] 
-                  ]
-                  , button [ class "btn btn-primary", onClick Next, if model.page == ceiling ( toFloat container.total / toFloat pageSize ) then disabled True else disabled False ][
-                    span [ class "glyphicon glyphicon-chevron-right" ] []
-                  ]
+                  div [ style "width" "30%"
+                  , style "margin" "auto" ] ((List.range 1 ( ceiling ( toFloat container.total / toFloat pageSize ))) |> List.map (viewButton model) )
+                  , div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
                 ]
             ]
   ]
+
+viewButton: Model -> Int -> Html Msg
+viewButton model num =
+    a [ href ("/gallery?page=" ++ String.fromInt num ++ "&sort=" ++ model.sort) ][
+        button[ class "btn btn-default"
+        , if model.page == num then
+            style "opacity" "0.3"
+          else
+            style "" ""
+        ][
+            text (String.fromInt num)
+        ]
+    ]
 
 encodeQuery: String -> Int -> Encode.Value
 encodeQuery sort page =

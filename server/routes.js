@@ -2,7 +2,8 @@ const fs = require('fs');
 const {pipeline} = require("stream");
 const path = require('path');
 const nodemailer = require('nodemailer');
-const MongoClient = require('mongodb').MongoClient;
+const ObjectId = require('mongodb').ObjectID
+const MongoClient = require('mongodb').MongoClient
 const assert = require('assert')
 const gpc = require('generate-pincode')
 const crypto = require('crypto')
@@ -528,7 +529,10 @@ async function routes(fastify) {
     })
 
     fastify.delete('/comment/delete', async (req, res) => {
-
+        let id = req.body.id
+        const db = client.db('database')
+        var cursor = await db.collection('comments').deleteOne({_id: ObjectId(id)})
+        res.code(200).send()
     })
 
     fastify.get('/carousel/get', async (req, res) => {

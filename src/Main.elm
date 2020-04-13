@@ -514,7 +514,7 @@ routeUrl url model =
             ( {model | page = Loading }, loadUser token )
 
           Failure ->
-            ( {model | page = NotFound "We are currently having server issues, please try again later"}, Cmd.none)
+            ( {model | page = NotFound "We are currently having server issues, please try again later"}, User.logout)
           
           _ ->
             case Parser.parse parser url of

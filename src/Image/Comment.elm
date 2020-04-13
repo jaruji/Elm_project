@@ -12,6 +12,7 @@ type alias Model =
     , url: String
     , date: Time.Posix
     , points: Int
+    , id: String
   }
 
 commentDecoder: Decode.Decoder Model
@@ -22,3 +23,4 @@ commentDecoder =
         |> optional "avatar" Decode.string "placeholder"
         |> required "uploaded" DecodeExtra.datetime
         |> required "points" Decode.int
+        |> required "_id" Decode.string

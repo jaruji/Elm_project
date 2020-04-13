@@ -62,8 +62,10 @@ type Msg
   | RateResponse (Result Http.Error())
   | StatsResponse (Result Http.Error(Stats.Model))
   | VoteResponse (Result Http.Error String)
+  | DeleteCommentResponse (Result Http.Error())
   | Comment String
   | Submit
+  | DeleteComment String
   | Upvote
   | Downvote
   | Veto
@@ -121,6 +123,16 @@ update msg model =
 
         Comment string ->
             ({ model | comment = string }, Cmd.none)
+
+        DeleteComment id ->
+            (model, deleteComment id)
+
+        DeleteCommentResponse response ->
+            case response of
+                Ok _ ->
+                    (model, loadComments model.id)
+                Err log ->
+                    (model, Cmd.none)
 
         VoteResponse response ->
             case response of
@@ -243,7 +255,7 @@ view model =
                                             onClick Veto
                                         _ ->
                                             style "" ""
-                                    ][ Icons.arrowUpCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 1 |> Icons.toHtml [] ]
+                                    ][ Icons.arrowUpCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
                                     , button [ style "background" "Transparent"
                                     ,  style "border" "none"
                                     , style "color" "black"
@@ -261,7 +273,7 @@ view model =
                                             onClick Veto
                                         _ ->
                                             style "" ""
-                                    ][ Icons.arrowDownCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 1 |> Icons.toHtml [] ]
+                                    ][ Icons.arrowDownCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
                                 ]
                     
                     , h3 [][
@@ -314,7 +326,7 @@ view model =
                                 True ->
                                     div [ style "font-style" "italic" ] [ text "No comments" ] 
                                 False ->
-                                    div [] (List.map viewComment comments) 
+                                    div [] (List.map (viewComment model.user) comments) 
                         ]
                 , div [ class "help-block"
                 , style "margin-top" "20px" ] [ text "Leave a comment on this post" ]
@@ -343,8 +355,8 @@ view model =
                 , style "margin-top" "100px" ][]
             ]
 
-viewComment: Comment.Model -> Html Msg
-viewComment comment =
+viewComment: Maybe User.Model -> Comment.Model -> Html Msg
+viewComment mbyUser comment =
     div[ class "media"
     , style "width" "50%"
     , style "margin" "auto"
@@ -365,6 +377,30 @@ viewComment comment =
             div [ class "help-block" ] [
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
                 , text ( " on " ++ (TimeFormat.formatTime comment.date))
+                , case mbyUser of
+                    Just user ->
+                        if user.username == comment.username then
+                            span[][
+                                button [ style "color" "red"
+                                , class "pull-right"
+                                , style "height" "20px"
+                                , style "width" "20px"
+                                , style "border" "none"
+                                , style "background" "Transparent"
+                                , onClick (DeleteComment comment.id)
+                                , style "outline" "none" ][ span [ class "glyphicon glyphicon-remove" ] [] ]  
+                                , button [ style "color" "#3b5998"
+                                , class "pull-right"
+                                , style "height" "20px"
+                                , style "width" "20px"
+                                , style "border" "none"
+                                , style "background" "Transparent"
+                                , style "outline" "none" ][ span [ class "glyphicon glyphicon-pencil" ] [] ]
+                            ]
+                        else
+                            text ""
+                    Nothing ->
+                        text ""
             ]
         ]
         , div[][
@@ -425,6 +461,19 @@ postComment id username content =
         url = Server.url ++ "/comment/add"
         , body = Http.jsonBody <| encodeComment id username content
         , expect = Http.expectWhatever CommentResponse
+      }
+
+deleteComment: String -> Cmd Msg
+deleteComment id =
+    Http.request
+      {   
+        method = "DELETE"
+        , headers = []
+        , url = Server.url ++ "/comment/delete"
+        , body = Http.jsonBody <| encodeID id
+        , expect = Http.expectWhatever DeleteCommentResponse
+        , timeout = Nothing
+        , tracker = Nothing
       }
 
 post: String -> Maybe User.Model -> Cmd Msg
