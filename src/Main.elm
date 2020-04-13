@@ -20,6 +20,7 @@ import Pages.Profile as Profile
 import Pages.Users as Users
 import Pages.Post as Post
 import Pages.Results as Results
+import Pages.Tags as Tags
 import Components.SearchBar as Search
 import Components.Carousel as Carousel
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
@@ -45,8 +46,6 @@ main =
     , onUrlChange = UrlChange
     , onUrlRequest = UrlRequest
     }
-
-
 
 -- MODEL
 
@@ -138,6 +137,7 @@ update msg model =
       case model.page of
         SignUp signup -> stepSignUp model (SignUp.update mesg signup)
           --this was not working together with cmd! the other approach works though
+          --of course it wasn't, you return Cmd.none... It would work if you would map Cmd
           --({model | page = SignUp (SignUp.update mesg signup)}, Cmd.none)
           --       -> (model, Cmd.none)
         _ -> (model, Cmd.none)
@@ -152,38 +152,52 @@ update msg model =
 
     GalleryMsg mesg ->
       case model.page of
-        Gallery gallery -> stepGallery model (Gallery.update mesg gallery)
-        _ -> ( model, Cmd.none )
+        Gallery gallery ->
+          stepGallery model (Gallery.update mesg gallery)
+        _ -> 
+          ( model, Cmd.none )
 
     UploadMsg mesg ->
       case model.page of
-        Upload upload -> stepUpload model (Upload.update mesg upload)
-        _ -> ( model, Cmd.none )
+        Upload upload ->
+          stepUpload model (Upload.update mesg upload)
+        _ -> 
+          ( model, Cmd.none )
 
     HomeMsg mesg ->
       case model.page of
-        Home home -> stepHome model (Home.update mesg home)
-        _ -> ( model, Cmd.none )
+        Home home -> 
+          stepHome model (Home.update mesg home)
+        _ -> 
+          ( model, Cmd.none )
 
     ProfileMsg mesg ->
       case model.page of
-        Profile profile -> stepProfile model (Profile.update mesg profile)
-        _ -> (model, Cmd.none)
+        Profile profile ->
+          stepProfile model (Profile.update mesg profile)
+        _ -> 
+          (model, Cmd.none)
 
     UsersMsg mesg ->
       case model.page of
-        Users users -> stepUsers model (Users.update mesg users)
-        _ -> (model, Cmd.none)
+        Users users -> 
+          stepUsers model (Users.update mesg users)
+        _ -> 
+          (model, Cmd.none)
 
     PostMsg mesg ->
       case model.page of
-        Post post -> stepPost model (Post.update mesg post)
-        _ -> (model, Cmd.none)
+        Post post -> 
+          stepPost model (Post.update mesg post)
+        _ -> 
+          (model, Cmd.none)
 
     ResultsMsg mesg ->
       case model.page of
-        Results results -> stepResults model (Results.update mesg results)
-        _ -> (model, Cmd.none)
+        Results results -> 
+          stepResults model (Results.update mesg results)
+        _ -> 
+          (model, Cmd.none)
 
     Response response ->
       case response of
@@ -364,7 +378,6 @@ viewHeader model =
       div [ class "container-fluid" ][
         div [ class "navbar-header" ][
           div [ class "navbar-brand" ][ 
-            --viewImage "assets/Elm_logo.svg.png" 35 35 
             a [ href "/", class "preview" ][
               Svg.svg [ SvgAttrs.width "35"
               , SvgAttrs.viewBox "0 0 35 35" ][ 

@@ -32,6 +32,7 @@ type alias Preview =
     , author: String
     , points: Int
     , views: Int
+    , favorites: Int
     , uploaded: Time.Posix
   }
 
@@ -99,7 +100,7 @@ showPreview image =
             , title "Favourites" ][
               Icons.heart |> Icons.withSize 15 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] 
               , b [ style "margin-left" "5px"
-              , style "font-size" "15px" ][ text (String.fromInt 0) ]
+              , style "font-size" "15px" ][ text (String.fromInt image.favorites) ]
             ]
           ]
         ]
@@ -129,6 +130,7 @@ decodePreview =
         |> optional "author" Decode.string "Anonymous"
         |> required "points" Decode.int
         |> required "views" Decode.int
+        |> optional "favorites" Decode.int 0
         |> required "uploaded" DecodeExtra.datetime
 
 decodeImage: Decode.Decoder Model

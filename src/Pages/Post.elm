@@ -32,7 +32,6 @@ type alias Model =
     , id: String
     , stats: StatsStatus
     , vote: VoteStatus
-    , editing: String
   }
 
 type Status
@@ -67,8 +66,6 @@ type Msg
   | Comment String
   | Submit
   | DeleteComment String
-  | Edit String
-  | ConfirmEdit String String
   | Upvote
   | Downvote
   | Veto
@@ -76,7 +73,7 @@ type Msg
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote ""
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote
     , Cmd.batch [
         post fragment user
         , getVote fragment user
@@ -162,12 +159,6 @@ update msg model =
 
         Veto ->
             (model, rate model "veto")
-
-        Edit string ->
-            (model, Cmd.none)
-
-        ConfirmEdit id comment ->
-            ({ model | editing = "" }, editComment id comment)
 
 view: Model -> Html Msg
 view model =
@@ -320,7 +311,7 @@ view model =
                                 True ->
                                     div [ style "font-style" "italic" ] [ text "No comments" ] 
                                 False ->
-                                    div [] (List.map (viewComment model.user) comments) 
+                                    div [] (List.map (viewComment model) comments) 
                         ]
                 , div [ class "help-block"
                 , style "margin-top" "20px" ] [ text "Leave a comment on this post" ]
@@ -351,8 +342,8 @@ view model =
                 , style "margin-top" "100px" ][]
             ]
 
-viewComment: Maybe User.Model -> Comment.Model -> Html Msg
-viewComment mbyUser comment =
+viewComment: Model -> Comment.Model -> Html Msg
+viewComment model comment =
     div[ class "media"
     , style "width" "50%"
     , style "margin" "auto"
@@ -373,28 +364,33 @@ viewComment mbyUser comment =
             div [ class "help-block" ] [
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
                 , text ( " on " ++ (TimeFormat.formatTime comment.date))
-                , case mbyUser of
+                , case model.user of
                     Just user ->
                         if user.username == comment.username then
                             span[][
                                 button [ style "color" "red"
-                                , style "transition" "all 0.3s ease 0s"
-                                , class "pull-right social"
-                                , style "height" "20px"
-                                , style "width" "20px"
-                                , style "border" "none"
-                                , style "background" "Transparent"
-                                , onClick (DeleteComment comment.id)
-                                , style "outline" "none" ][ span [ class "glyphicon glyphicon-trash" ] [] ]  
+                                    , style "transition" "all 0.3s ease 0s"
+                                    , class "pull-right social"
+                                    , style "height" "20px"
+                                    , style "width" "20px"
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , title "Delete"
+                                    , onClick (DeleteComment comment.id)
+                                    , style "outline" "none" ][ span [ 
+                                        class "glyphicon glyphicon-trash" ] [] 
+                                    ]  
                                 , button [ style "color" "#3b5998"
-                                , style "transition" "all 0.3s ease 0s"
-                                , class "pull-right social"
-                                , style "height" "20px"
-                                , style "width" "20px"
-                                , style "border" "none"
-                                , style "background" "Transparent"
-                                , onClick (Edit comment.id)
-                                , style "outline" "none" ][ span [ class "glyphicon glyphicon-pencil" ] [] ]
+                                    , style "transition" "all 0.3s ease 0s"
+                                    , class "pull-right social"
+                                    , style "height" "20px"
+                                    , style "width" "20px"
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , title "Edit"
+                                    , style "outline" "none" ][ span [ 
+                                        class "glyphicon glyphicon-pencil" ] [] 
+                                    ]
                             ]
                         else
                             text ""

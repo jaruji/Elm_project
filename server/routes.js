@@ -523,6 +523,8 @@ async function routes(fastify) {
                 res.code(500).send()
             }
             else if(results){
+                if(results.length === 0)
+                    res.send(results)
                 for(let i = 0; i < results.length; i++){
                     var user = await db.collection('accounts').findOne({username: results[i].username}, function(err, result){
                         if(err){
