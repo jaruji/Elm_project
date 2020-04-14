@@ -195,11 +195,10 @@ view model =
                     --
                     --STATS HERE
                     --
-                    , h3 [][ text "Stats" ]
-                    , hr [ style "width" "50%" 
-                    , style "margin" "auto"
-                    , style "margin-top" "5px" ][]
-                    , div [ style "width" "50%"
+                    , h3[][ text "Stats"]
+                    , div [ class "well" 
+                    , style "width" "30%"
+                    , style "height" "60px"
                     , style "margin" "auto"
                     , style "margin-top" "10px" ][
                         case model.stats of
@@ -210,69 +209,74 @@ view model =
                             SuccessStats stats ->
                                 Stats.view stats
                     ]
-                    , br [][]
-                    , h3 [][ text "Rate" ]
-                    , case model.vote of
-                            LoadingVote ->
-                                text "Loading vote"
-                            FailureVote ->
-                                text "Failed to load vote"
-                            SuccessVote string ->
-                                div[][
-                                    button [ style "background" "Transparent"
-                                    , style "border" "none"
-                                    , style "color" "black"
-                                    , class "social"
-                                    , style "outline" "none"
-                                    , style "transition" "all 0.3s ease 0s"
-                                    , case string of
-                                        "upvote" ->
-                                            style "color" "green"
-                                            --, onClick Veto
-                                        "invalid" ->
-                                            disabled True
-                                        "none" ->
-                                            onClick Upvote
-                                        "downvote" ->
-                                            onClick Veto
-                                        _ ->
-                                            style "" ""
-                                    ][ Icons.arrowUpCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
-                                    , button [ style "background" "Transparent"
-                                    ,  style "border" "none"
-                                    , style "color" "black"
-                                    , class "social"
-                                    , style "outline" "none"
-                                    , style "transition" "all 0.3s ease 0s"
-                                    , case string of
-                                        "downvote" ->
-                                            style "color" "red"
-                                            --, onClick Veto
-                                        "invalid" ->
-                                            disabled True
-                                        "none" ->
-                                            onClick Downvote
-                                        "upvote" ->
-                                            onClick Veto
-                                        _ ->
-                                            style "" ""
-                                    ][ Icons.arrowDownCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
-                                ]
-                    
+                    , div [ style "margin-top" "10px" ][
+                        case model.vote of
+                                LoadingVote ->
+                                    text "Loading vote"
+                                FailureVote ->
+                                    text "Failed to load vote"
+                                SuccessVote string ->
+                                    div[][
+                                        button [ style "background" "Transparent"
+                                        , style "border" "none"
+                                        , style "color" "darkgrey"
+                                        , class "social"
+                                        , style "outline" "none"
+                                        , style "transition" "all 0.3s ease 0s"
+                                        , case string of
+                                            "upvote" ->
+                                                style "color" "lime"
+                                                --, onClick Veto
+                                            "invalid" ->
+                                                disabled True
+                                            "none" ->
+                                                onClick Upvote
+                                            "downvote" ->
+                                                onClick Veto
+                                            _ ->
+                                                style "" ""
+                                        ][ Icons.arrowUpCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
+                                        , button [ style "background" "Transparent"
+                                        ,  style "border" "none"
+                                        , style "color" "darkgrey"
+                                        , class "social"
+                                        , style "outline" "none"
+                                        , style "transition" "all 0.3s ease 0s"
+                                        , case string of
+                                            "downvote" ->
+                                                style "color" "red"
+                                                --, onClick Veto
+                                            "invalid" ->
+                                                disabled True
+                                            "none" ->
+                                                onClick Downvote
+                                            "upvote" ->
+                                                onClick Veto
+                                            _ ->
+                                                style "" ""
+                                        ][ Icons.arrowDownCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
+                                    ]   
+                    ]                 
                     , h3 [][
                         text "Description"
                     ]
-                    , p [ style "font-size" "16px"
-                    , style "max-width" "600px"
-                    , style "margin" "auto" ][
-                        case image.description of
-                            "No description" ->
-                                div [ style "font-style" "italic" ][ text image.description ]
-                            _ -> 
-                                div[style "font-style" "italic"][
-                                    {--Markdown.toHtml []--} text image.description
+                    , case image.description of
+                        "No description" ->
+                            div [ style "font-style" "italic" ][ 
+                                text image.description 
+                            ]
+                        _ -> 
+                            div[ class "media"
+                            , style "margin" "auto"
+                            , style "max-width" "50%" ][
+                                div[ class "media-body well" ][
+                                    div[ style "text-align" "center" ][
+                                        i [ style "font-size" "14px" ][ 
+                                            text image.description 
+                                        ]
+                                    ]
                                 ]
-                    ]
+                            ]
                     , case List.isEmpty image.tags of
                         True ->
                             div[][

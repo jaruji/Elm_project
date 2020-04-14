@@ -2,6 +2,8 @@ module Pages.SignUp exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
+import Browser.Dom as Dom
+import Task
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput, onClick)
@@ -35,7 +37,7 @@ type alias Model =
 
 init : (Nav.Key) -> (Model, Cmd Msg)
 init key =
-  (Model "" "" "" "" "" Loading "" key False False, Cmd.none)
+  (Model "" "" "" "" "" Loading "" key False False, Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
 
 
 
@@ -53,6 +55,7 @@ type Msg
   | Response (Result Http.Error String)
   | UsernameResponse (Result Http.Error String)
   | EmailResponse (Result Http.Error String)
+  | Empty
 
 type Status
   = Loading
@@ -62,6 +65,9 @@ type Status
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
+    Empty ->
+      (model, Cmd.none)
+
     Name name ->
       ({ model | name = name }, checkUsername name)
 

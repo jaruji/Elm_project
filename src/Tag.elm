@@ -1,5 +1,4 @@
 module Tag exposing (..)
-
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -12,5 +11,5 @@ view value =
     , style "outline" "none"
     , style "background-color" "#3b5998"
     , style "margin" "1px"
-    , href ("/search?q=" ++ value)
+    , href ("/tags?page=1&q=" ++ value)
     ][ text value ]

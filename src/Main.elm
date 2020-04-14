@@ -68,6 +68,7 @@ type Page
   | Profile Profile.Model
   | Users Users.Model
   | Post Post.Model
+  | Tags Tags.Model
   | Results Results.Model
 
 type State
@@ -89,6 +90,7 @@ type Msg
   | UpdateSearch Search.Msg
   | PostMsg Post.Msg
   | ResultsMsg Results.Msg
+  | TagsMsg Tags.Msg
   | LogOut
   | Response (Result Http.Error User.Model)
 
@@ -199,6 +201,13 @@ update msg model =
         _ -> 
           (model, Cmd.none)
 
+    TagsMsg mesg ->
+      case model.page of
+        Tags tags -> 
+          stepTags model (Tags.update mesg tags)
+        _ -> 
+          (model, Cmd.none)
+
     Response response ->
       case response of
         Ok user ->
@@ -206,6 +215,10 @@ update msg model =
           --page refresh without calling init!
         Err log ->
           ({ model | state = Failure}, Cmd.none)
+
+stepTags: Model -> (Tags.Model, Cmd Tags.Msg) -> (Model, Cmd Msg)
+stepTags model (tags, cmd) =
+  ({ model | page = Tags tags }, Cmd.map TagsMsg cmd)
 
 stepResults: Model -> (Results.Model, Cmd Results.Msg) -> (Model, Cmd Msg)
 stepResults model (results, cmd) =
@@ -370,6 +383,16 @@ view model =
             , viewFooter
           ]
         }
+      Tags tags -> 
+        { title = "Tags"
+          , body = [
+            viewHeader model
+            , div[class "body"][
+              Tags.view tags |> Html.map TagsMsg
+            ]
+            , viewFooter
+          ]
+        }
 
 viewHeader: Model -> Html Msg
 viewHeader model = 
@@ -399,7 +422,9 @@ viewHeader model =
             , li [] [ a [ href "/users?page=1", case model.page of 
               Users _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Users" ] ]
-            , li [] [ a [ href "/tags" ] [ text "Tags"] ]
+            , li [] [ a [ href "/tags?page=1", case model.page of 
+              Tags _ -> style "color" "white" 
+              _ -> style "" "" ] [ text "Tags" ] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
         ]
         
@@ -521,6 +546,10 @@ routeUrl url model =
           , route (s "search" <?> Query.string "q")
           (
             \q -> stepResults model (Results.init q)
+          )
+          , route (s "tags" <?> Query.int "page" <?> Query.string "q")
+          (
+            \page q -> stepTags model (Tags.init model.key page q)
           )
         ]
   in 

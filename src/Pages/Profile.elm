@@ -195,11 +195,13 @@ view model =
                                 , if user.verif == True then 
                                     span [ class "glyphicon glyphicon-ok-circle"
                                     , style "color" "green"
-                                    , style "margin-left" "5px" ][]
+                                    , style "margin-left" "5px"
+                                    , title "Verified" ][]
                                 else
                                     span [ class "glyphicon glyphicon-remove-circle"
                                     , style "color" "red"
-                                    , style "margin-left" "5px" ] []
+                                    , style "margin-left" "5px"
+                                    , title "Not verified" ] []
                         ]
                         , div [ style "margin-bottom" "20px" ] [
                             ul [ class "nav" ] [

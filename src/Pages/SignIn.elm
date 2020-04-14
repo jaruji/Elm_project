@@ -2,6 +2,8 @@ module Pages.SignIn exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
+import Browser.Dom as Dom
+import Task
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput, onClick, onMouseEnter)
@@ -27,7 +29,7 @@ type alias Model =
 
 init : Nav.Key -> (Model, Cmd Msg, Session.UpdateSession)
 init key =
-  (Model "" "" "" Loading key, Cmd.none, Session.NoUpdate)
+  (Model "" "" "" Loading key, Task.perform (\_ -> Empty) (Dom.setViewport 0 0), Session.NoUpdate)
 
 
 -- UPDATE
@@ -38,23 +40,19 @@ type Msg
   | Password String
   | Submit
   | Response (Result Http.Error User.Model)
-
-{--
-type Session --session
-  = Anonymous
-  | LoggedIn
---}
+  | Empty
  
 type Status --status when logging in
   = Loading
   | Failure Http.Error
   | Success String
 
-
-
 update : Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
 update msg model =
   case msg of
+    Empty ->
+      (model, Cmd.none, Session.NoUpdate)
+
     Name name ->
       ( { model | name = name }, Cmd.none, Session.NoUpdate )
 
