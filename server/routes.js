@@ -573,6 +573,7 @@ async function routes(fastify) {
         let pageSize = 9
         let offset = pageSize * (page - 1) 
         const db = client.db('database')
+        query = new RegExp(`\\b${query}\\b`, 'i')
         var cursor = await db.collection('images').find({tags: { $in: [query] }}).skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
         output.map(function(key){

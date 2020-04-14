@@ -12,6 +12,7 @@ import Server
 import Json.Decode as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
+import Tag
 
 pageSize = 9
 
@@ -69,6 +70,7 @@ view: Model -> Html Msg
 view model =
     div[][
         h1[][ text "Search images based on tags" ]
+        , div [ class "help-block" ][ text "The search is case insensitive!" ]
         , div [ class "form-group row", style "width" "70%", style "margin" "auto", style "padding-bottom" "15px" ][ 
             div [ class "col-md-offset-2 col-md-8" ][
                 div[ class "form-group has-feedback" ][
@@ -96,7 +98,8 @@ view model =
                             div [ class "alert alert-warning"
                             , style "margin" "auto"
                             , style "width" "60%" ][
-                                text ("No results for query \"" ++ model.query ++ "\"")
+                                text ("No results for tag ")
+                                , Tag.view model.query
                             ]
                         _ ->
                             div[][
