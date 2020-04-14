@@ -13,7 +13,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 
-pageSize = 25
+pageSize = 20
 
 type alias Model =
   {  
@@ -35,14 +35,11 @@ type Msg
   | Next
   | Previous
   | Empty
+  | Jump Int
 
-init: Nav.Key -> Maybe Int -> (Model, Cmd Msg)
-init key page =
-    case page of
-        Just int ->
-            (Model key Loading "" int, getUsers "" int)
-        Nothing ->
-            (Model key Loading "" 1, getUsers "" 1)
+init: Nav.Key -> (Model, Cmd Msg)
+init key =
+    (Model key Loading "" 1, getUsers "" 1)
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -50,6 +47,9 @@ update msg model =
   case msg of
     Test ->
         (model, Cmd.none)
+
+    Jump int ->
+        ({ model | page = int }, Cmd.batch [getUsers model.query int, Task.perform (\_ -> Empty) (Dom.setViewport 0 0)])
 
     Response response ->
         case response of
@@ -65,7 +65,7 @@ update msg model =
                 ({ model | status = Failure "Connection error"}, Cmd.none)
 
     Query query ->
-        ({ model | query = query, status = Loading }, getUsers query model.page )
+        ({ model | query = query, status = Loading, page = 1 }, getUsers query 1 )
 
     Empty ->
         (model, Cmd.none)
@@ -123,13 +123,9 @@ view model =
                         , style "border" "none" ]
                             (List.map User.showPreview users)
                         , div [ style "margin-top" "20px" ] [
-                            div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
-                            , button [ class "btn btn-primary", onClick Previous, if model.page == 1 then disabled True else disabled False ][
-                                span [ class "glyphicon glyphicon-chevron-left" ] [] 
-                            ]
-                            , button [ class "btn btn-primary", onClick Next, if model.page == ceiling ( toFloat container.total / toFloat pageSize ) then disabled True else disabled False ][
-                                span [ class "glyphicon glyphicon-chevron-right" ] []
-                            ]
+                            div [ style "width" "30%"
+                            , style "margin" "auto" ] ((List.range 1 ( ceiling ( toFloat container.total / toFloat pageSize ))) |> List.map (viewButton model) )
+                            , div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
                         ]
                     ]
             Failure error ->
@@ -138,6 +134,18 @@ view model =
                 , style "width" "60%" ][
                     text error 
                 ]
+    ]
+
+viewButton: Model -> Int -> Html Msg
+viewButton model num =
+    button[ class "btn btn-default"
+    , if model.page == num then
+        style "opacity" "0.3"
+      else
+        style "" ""
+    , onClick (Jump num)
+    ][
+        text (String.fromInt num)
     ]
 
 encodeQuery: String -> Int -> Encode.Value

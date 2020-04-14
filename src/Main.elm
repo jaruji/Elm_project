@@ -419,10 +419,10 @@ viewHeader model =
             , li [] [ a [ href "/upload", case model.page of 
               Upload _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Upload" ] ]
-            , li [] [ a [ href "/users?page=1", case model.page of 
+            , li [] [ a [ href "/users", case model.page of 
               Users _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Users" ] ]
-            , li [] [ a [ href "/tags?page=1", case model.page of 
+            , li [] [ a [ href "/tags", case model.page of 
               Tags _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Tags" ] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
@@ -531,9 +531,9 @@ routeUrl url model =
                     ({model | page = NotFound "You must be logged in to do this"}, Cmd.none)
                   )
             )
-          , route (s "users" <?> Query.int "page")
+          , route (s "users")
           (
-            \page -> stepUsers model (Users.init model.key page)
+            stepUsers model (Users.init model.key)
           )
           , route (s "post" </> Parser.string)
           (
@@ -547,9 +547,9 @@ routeUrl url model =
           (
             \q -> stepResults model (Results.init q)
           )
-          , route (s "tags" <?> Query.int "page" <?> Query.string "q")
+          , route (s "tags" <?> Query.string "q")
           (
-            \page q -> stepTags model (Tags.init model.key page q)
+            \q -> stepTags model (Tags.init model.key q)
           )
         ]
   in 

@@ -357,7 +357,7 @@ async function routes(fastify) {
     fastify.post('/accounts/query', async(req, res) => {
         let query = req.body.query 
         let page = req.body.page
-        let pageSize = 25
+        let pageSize = 20
         let offset = pageSize * (page - 1)
         const db = client.db('database')
         var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().skip(offset).limit(pageSize).toArray()
@@ -565,6 +565,24 @@ async function routes(fastify) {
     fastify.get('/carousel/get', async (req, res) => {
 
 
+    })
+
+    fastify.post('/tags/query', async(req, res) => {
+        let query = req.body.query
+        let page = req.body.page
+        let pageSize = 9
+        let offset = pageSize * (page - 1) 
+        const db = client.db('database')
+        var cursor = await db.collection('images').find({tags: { $in: [query] }}).skip(offset).limit(pageSize).toArray()
+        let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
+        output.map(function(key){
+            key["file"] = "http://localhost:3000/img/" + key.file
+            //key["count"] = count
+        })
+        let obj = new Object()
+        obj.total = await db.collection('images').countDocuments({tags: { $in: [query] }})
+        obj.images = output
+        res.send(obj)
     })
 }
 

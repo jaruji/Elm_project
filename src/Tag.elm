@@ -11,5 +11,5 @@ view value =
     , style "outline" "none"
     , style "background-color" "#3b5998"
     , style "margin" "1px"
-    , href ("/tags?page=1&q=" ++ value)
+    , href ("/tags?q=" ++ value)
     ][ text value ]
