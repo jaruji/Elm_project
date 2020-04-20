@@ -311,7 +311,7 @@ async function routes(fastify) {
             }
             else{
                 console.log(`File stored to ${dir}/${filename}`)
-                res.code(200).send()
+                res.send({response: ID})
             }
           }
         )
@@ -505,6 +505,43 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
+    fastify.delete('/images/delete', async(req, res) =>{
+        let id = req.body.id
+        let auth = req.headers.auth
+        const db = client.db('database')
+        var cursor = await db.collection('accounts').findOne({token: auth}, async function(err, result){
+            if(err){
+                res.code(500).send(new Error("Server error"))
+            }
+            else if(result){
+                var img = await db.collection('images').findOne({id: id}, async function(err, result){
+                    if(err){
+                        res.code(500).send(new Error("Server error"))
+                    }
+                    else if(result){
+                        fs.unlink("./server/data/img/" + result.file, async function(err){
+                            if(err){
+                                res.code(500).send(new Error("File deletion failed"))
+                            }
+                            else{
+                                var del = await db.collection('images').deleteOne({id: id})
+                                del = await db.collection('comments').deleteMany({imageID: id})
+                                del = await db.collection('votes').deleteMany({id: id})
+                                res.code(200).send()
+                            }
+                        })
+                    }
+                    else{
+                        res.code(400).send(new Error("No image with this ID")) 
+                    }
+                })
+            }
+            else{
+                res.code(400).send(new Error("You are not authorized for this action"))
+            }
+        })
+    })
+
     fastify.post('/comment/add', async (req, res) => { 
         //log this: user has added new comment
         let content = req.body.content
@@ -578,7 +615,6 @@ async function routes(fastify) {
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
         output.map(function(key){
             key["file"] = "http://localhost:3000/img/" + key.file
-            //key["count"] = count
         })
         let obj = new Object()
         obj.total = await db.collection('images').countDocuments({tags: { $in: [query] }})

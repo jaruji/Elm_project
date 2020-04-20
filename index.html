@@ -72,7 +72,10 @@
           else
             localStorage.setItem(key, value)
         })
+        app.ports.title.subscribe(value => {
+          console.log("Title = " + value )
+          document.title = value
+        })
       </script>
-
   </body>
 </html>

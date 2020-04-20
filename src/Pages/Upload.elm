@@ -47,7 +47,7 @@ type Msg
   | DragLeave
   | GotFiles File
   | GetPreview String
-  | Response (Result Http.Error())
+  | Response (Result Http.Error String)
   | Upload
   | RemoveImg
   | RemoveTitle
@@ -111,7 +111,7 @@ update msg model =
     Response response ->
       case response of
         Ok string ->
-          ( model, Nav.reload )
+          (model, Nav.pushUrl model.key ("/post/" ++ string))
         Err log ->
           ({ model | warning = "Connection error, please try again later" }, Cmd.none)
 
@@ -333,7 +333,7 @@ put model file token =
       ]
     , url = Server.url ++ "/upload/image"
     , body = Http.fileBody file
-    , expect = Http.expectWhatever Response
+    , expect = Http.expectJson Response (Decode.field "response" Decode.string)
     , timeout = Nothing
     , tracker = Nothing
     }

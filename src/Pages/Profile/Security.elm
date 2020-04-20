@@ -226,6 +226,10 @@ view model =
             , button [ class "btn btn-primary"
             , style "margin-bottom" "10px"
             , style "margin-top" "20px"
+            , if model.user.verif == False then
+                disabled True
+              else
+                style "" ""
             , onClick ChangePassword ][
                 text "Change Password" 
             ]

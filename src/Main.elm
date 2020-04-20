@@ -26,6 +26,7 @@ import Components.Carousel as Carousel
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Session
 import User
+import Title
 import Server
 import ElmLogo as Logo
 import Svg

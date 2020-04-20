@@ -63,9 +63,11 @@ type Msg
   | StatsResponse (Result Http.Error(Stats.Model))
   | VoteResponse (Result Http.Error String)
   | ManageCommentResponse (Result Http.Error())
+  | DeleteResponse (Result Http.Error())
   | Comment String
   | Submit
   | DeleteComment String
+  | DeletePost String String
   | Upvote
   | Downvote
   | Veto
@@ -126,6 +128,16 @@ update msg model =
 
         DeleteComment id ->
             (model, deleteComment id)
+
+        DeletePost id token ->
+            (model, deletePost id token)
+
+        DeleteResponse response ->
+            case response of
+                Ok _ ->
+                    (model, Nav.pushUrl model.key "/")
+                Err log ->
+                    (model, Cmd.none)
 
         ManageCommentResponse response ->
             case response of
@@ -188,7 +200,6 @@ view model =
                     , hr[ style "width" "60%"
                     , style "margin" "auto"
                     , style "margin-bottom" "20px" ][]
-                    --, div [ class "help-block" ] [ text ("This image has " ++ String.fromInt image.views ++ " views") ]
                     , img [ src image.url
                     , style "max-width" "1400px"
                     , style "max-height" "1500px" ] []
@@ -292,6 +303,17 @@ view model =
                                     (List.map Tag.view image.tags)
                             ]
                 ]
+                , case model.user of
+                        Just user ->
+                            if user.username == image.author then
+                                button [ class "btn btn-danger" 
+                                , onClick (DeletePost image.id user.token) ][
+                                    text "Delete"
+                                ]
+                            else
+                                text ""
+                        Nothing ->
+                            text ""
                 --COMMENTS SECTION HERE
                 , case model.comments of
                     LoadingComments ->
@@ -508,6 +530,18 @@ post id user =
         , tracker = Nothing
       }
 
+deletePost: String -> String -> Cmd Msg
+deletePost id token =
+    Http.request
+      {   
+        method = "DELETE"
+        , headers = [ Http.header "auth" token ]
+        , url = Server.url ++ "/images/delete"
+        , body = Http.jsonBody <| encodeID id
+        , expect = Http.expectWhatever DeleteResponse
+        , timeout = Nothing
+        , tracker = Nothing
+      }
 loadStats: String -> Cmd Msg
 loadStats id =
     Http.request

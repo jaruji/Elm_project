@@ -17,7 +17,7 @@ type alias Model =
 
 init : Nav.Key -> ( Model, Cmd Msg)
 init key =
-  (Model "" key None, Cmd.none)
+  (Model "" key Invalid, Cmd.none)
 
 type Msg
   = UpdateValue String
@@ -25,16 +25,13 @@ type Msg
 
 type State
   = Valid
-  | None
   | Invalid
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     UpdateValue val ->
-      if val == "" then
-        ({ model | searchValue = val, state = None }, Cmd.none)
-      else if String.length val < 2 then
+      if String.length val < 2 then
         ({ model | searchValue = val, state = Invalid }, Cmd.none)
       else
         ({ model | searchValue = val, state = Valid }, Cmd.none)
@@ -42,12 +39,10 @@ update msg model =
       case key of
         13 ->                       --on Enter down
           case model.state of
-            None ->
-              (model, Cmd.none)
             Invalid ->
               (model, Cmd.none)
             Valid ->
-              ({ model | searchValue = "" }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
+              ({ model | searchValue = "", state = Invalid }, Nav.replaceUrl model.key ("/search?q=" ++ model.searchValue))
         _ ->
           (model, Cmd.none)
 

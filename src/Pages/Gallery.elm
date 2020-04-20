@@ -39,6 +39,7 @@ type Msg
     | SortPopular
     | SortTop
     | Empty
+    | Jump String Int
 
 
 
@@ -78,7 +79,9 @@ update msg model =
 
         SortTop ->
           ({ model | status = Loading, sort = "rating" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=rating") )
-    
+        Jump sort page ->
+          (model, Cmd.batch [Nav.pushUrl model.key ("/gallery?page=" ++ String.fromInt page ++ "&sort=" ++ model.sort),Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
+
 view : Model -> Html Msg
 view model =
   div[][
@@ -164,16 +167,15 @@ view model =
 
 viewButton: Model -> Int -> Html Msg
 viewButton model num =
-    a [ href ("/gallery?page=" ++ String.fromInt num ++ "&sort=" ++ model.sort) ][
-        button[ class "btn btn-default"
-        , if model.page == num then
-            style "opacity" "0.3"
-          else
-            style "" ""
-        ][
-            text (String.fromInt num)
-        ]
-    ]
+  button[ class "btn btn-default"
+  , if model.page == num then
+      style "opacity" "0.3"
+    else
+      style "" ""
+  , onClick (Jump model.sort num)
+  ][
+      text (String.fromInt num)
+  ]
 
 encodeQuery: String -> Int -> Encode.Value
 encodeQuery sort page =

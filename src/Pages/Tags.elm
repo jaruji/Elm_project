@@ -64,13 +64,13 @@ update msg model =
                 Ok container ->
                     ({ model | status = Success container }, Cmd.none)
                 Err log ->
-                    ({ model | status = Failure ("No results for query \"" ++ model.query ++ "\"") }, Cmd.none)
+                    ({ model | status = Failure "Connection error" }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
     div[][
         h1[][ text "Search images based on tags" ]
-        , div [ class "help-block" ][ text "The search is case insensitive!" ]
+        , div [ class "help-block" ][ text "The search is not case sensitive" ]
         , div [ class "form-group row", style "width" "70%", style "margin" "auto", style "padding-bottom" "15px" ][ 
             div [ class "col-md-offset-2 col-md-8" ][
                 div[ class "form-group has-feedback" ][

@@ -22,6 +22,7 @@ import TimeFormat
 import Pages.Profile.Settings as SettingsTab
 import Pages.Profile.Security as SecurityTab
 import Pages.Profile.History as HistoryTab
+import Title
 
 postCount = 5
 
@@ -38,9 +39,9 @@ type alias Model =
 init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg)
 init key user fragment = 
     if fragment == user.username then
-        (Model user key Information fragment Success LoadingPosts, getPosts fragment postCount)
+        (Model user key Information fragment Success LoadingPosts, Cmd.batch [ getPosts fragment postCount, Title.title user.username])
     else 
-        (Model user key Information fragment Loading LoadingPosts, Cmd.batch [ loadUser fragment, getPosts fragment postCount ])
+        (Model user key Information fragment Loading LoadingPosts, Cmd.batch [ loadUser fragment, getPosts fragment postCount, Title.title fragment ])
 
 type Status
   = Loading
