@@ -370,6 +370,43 @@ async function routes(fastify) {
         res.send(obj)
     })
 
+    fastify.get('/account/favorites', async(req, res) =>{
+        let username = req.query.username
+        const db = client.db(database)
+        var cursor = await db.collection('favorites').find().toArray(async function(err, results){
+            if(err){
+                res.code(500).send(new Error("Server error"))
+            }
+            else if(results){
+                if(results.length === 0)
+                    res.send(results)
+                let output = []
+                for(let i = 0; i < results.length; i++){
+                    var user = await db.collection('images').findOne({id: results[i].id}, function(err, result){
+                        if(err){
+                            res.code(500).send()
+                        }
+                        else if(result){
+                            output.push(result)
+                            if(i === results.length - 1){
+                                output.map(function(key){
+                                    key["file"] = "http://localhost:3000/img/" + key.file
+                                })
+                                res.send(output)
+                            }
+                        }
+                        else{
+                            res.code(400).send()
+                        }
+                    })
+                }
+            }
+            else{
+                res.code(400).send()
+            }
+        })
+    })
+
     fastify.post('/images/q', async (req, res) => { 
         //somehow need to send back the total number of pages so I can map the buttons
         const db = client.db(database)

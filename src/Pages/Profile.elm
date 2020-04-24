@@ -94,7 +94,7 @@ update msg model =
         ({ model | tab = History (HistoryTab.getModel ( HistoryTab.init model.user ) ) }, Cmd.none)
 
     SwitchFavorites ->
-        ({ model | tab = Favorites (FavoritesTab.getModel (FavoritesTab.init model.user ) ) }, Cmd.none)
+        ({ model | tab = Favorites (FavoritesTab.getModel (FavoritesTab.init model.user ) ) }, Cmd.map FavoritesMsg (FavoritesTab.getFavs model.fragment))
 
     SettingsMsg mesg ->
         case model.tab of
@@ -367,7 +367,7 @@ view model =
                                             ]
                                         else
                                             div [] [
-                                                div [] (List.map viewPost posts)
+                                                div [] (List.map Image.showTab posts)
                                                 , if List.length posts == postCount then
                                                     button [ class "btn btn-primary"
                                                     , onClick LoadMore ][
@@ -420,35 +420,6 @@ loadUser username =
     , timeout = Nothing
     , tracker = Nothing
     }
-
-viewPost: Image.Preview -> Html Msg
-viewPost post =
-    div[ class "media"
-    , style "width" "70%"
-    , style "margin" "auto"
-    , style "margin-bottom" "20px"  ][
-        div[ class "media-left" ][
-            a [ href ("/post/" ++ post.id) ][
-                img [ src post.url
-                , attribute "draggable" "false"
-                , class "avatar"
-                , height 100
-                , width 100 ][]
-            ]
-        ]
-        , div[ class "media-body well"
-        , style "text-align" "left" ][
-            div [ class "media-heading" ][
-                div [ class "help-block" ] [
-                    text (TimeFormat.formatTime post.uploaded)
-                ]
-            ]
-            , div [ class "media-body" ][
-                a [ href ("/post/" ++ post.id)
-                , class "preview" ] [ text post.title ]
-            ]
-        ]
-    ]
 
 getPostsEncoder: String -> Int -> Encode.Value
 getPostsEncoder username limit =

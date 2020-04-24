@@ -108,6 +108,35 @@ showPreview image =
     ]   
   ]
 
+showTab: Preview -> Html msg
+showTab post =
+    div[ class "media"
+    , style "width" "70%"
+    , style "margin" "auto"
+    , style "margin-bottom" "20px"  ][
+        div[ class "media-left" ][
+            a [ href ("/post/" ++ post.id) ][
+                img [ src post.url
+                , attribute "draggable" "false"
+                , class "avatar"
+                , height 100
+                , width 100 ][]
+            ]
+        ]
+        , div[ class "media-body well"
+        , style "text-align" "left" ][
+            div [ class "media-heading" ][
+                div [ class "help-block" ] [
+                    text (TimeFormat.formatTime post.uploaded)
+                ]
+            ]
+            , div [ class "media-body" ][
+                a [ href ("/post/" ++ post.id)
+                , class "preview" ] [ text post.title ]
+            ]
+        ]
+    ]
+
 trimString: String -> String
 trimString string =
   if String.length string > 25 then
