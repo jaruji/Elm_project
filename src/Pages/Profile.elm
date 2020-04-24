@@ -22,6 +22,7 @@ import TimeFormat
 import Pages.Profile.Settings as SettingsTab
 import Pages.Profile.Security as SecurityTab
 import Pages.Profile.History as HistoryTab
+import Pages.Profile.Favorites as FavoritesTab
 import Title
 
 postCount = 5
@@ -55,12 +56,14 @@ type PostsStatus
 
 type Msg
   = SwitchInformation
+  | SwitchFavorites
   | SwitchSettings
   | SwitchSecurity
   | SwitchHistory
   | HistoryMsg HistoryTab.Msg
   | SettingsMsg SettingsTab.Msg
   | SecurityMsg SecurityTab.Msg
+  | FavoritesMsg FavoritesTab.Msg
   | Select
   | GotFile File
   | PostsResponse (Result Http.Error (List Image.Preview))
@@ -70,6 +73,7 @@ type Msg
 
 type Tab
   = Information
+  | Favorites FavoritesTab.Model
   | Settings SettingsTab.Model
   | Security SecurityTab.Model
   | History HistoryTab.Model
@@ -88,6 +92,9 @@ update msg model =
 
     SwitchHistory ->
         ({ model | tab = History (HistoryTab.getModel ( HistoryTab.init model.user ) ) }, Cmd.none)
+
+    SwitchFavorites ->
+        ({ model | tab = Favorites (FavoritesTab.getModel (FavoritesTab.init model.user ) ) }, Cmd.none)
 
     SettingsMsg mesg ->
         case model.tab of
@@ -108,6 +115,13 @@ update msg model =
             History hist -> 
                 stepHistory model (HistoryTab.update mesg hist)
             _ -> 
+                (model, Cmd.none)
+
+    FavoritesMsg mesg ->
+        case model.tab of
+            Favorites fav ->
+                stepFavorites model (FavoritesTab.update mesg fav)
+            _ ->
                 (model, Cmd.none)
 
     Select ->
@@ -143,17 +157,21 @@ update msg model =
             Err log ->
                 ({ model | postsStatus = FailurePosts }, Cmd.none)
 
-stepSettings : Model -> (SettingsTab.Model, Cmd SettingsTab.Msg) -> (Model, Cmd Msg)
+stepSettings: Model -> (SettingsTab.Model, Cmd SettingsTab.Msg) -> (Model, Cmd Msg)
 stepSettings model ( settings, cmd ) =
   ({ model | tab = Settings settings }, Cmd.map SettingsMsg cmd)
 
-stepSecurity : Model -> (SecurityTab.Model, Cmd SecurityTab.Msg) -> (Model, Cmd Msg)
+stepSecurity: Model -> (SecurityTab.Model, Cmd SecurityTab.Msg) -> (Model, Cmd Msg)
 stepSecurity model ( sec, cmd ) =
   ({ model | tab = Security sec }, Cmd.map SecurityMsg cmd)
 
-stepHistory : Model -> (HistoryTab.Model, Cmd HistoryTab.Msg) -> (Model, Cmd Msg)
+stepHistory: Model -> (HistoryTab.Model, Cmd HistoryTab.Msg) -> (Model, Cmd Msg)
 stepHistory model ( hist, cmd ) =
   ({ model | tab = History hist }, Cmd.map HistoryMsg cmd)
+
+stepFavorites: Model -> (FavoritesTab.Model, Cmd FavoritesTab.Msg) -> (Model, Cmd Msg)
+stepFavorites model ( fav, cmd ) =
+  ({ model | tab = Favorites fav }, Cmd.map FavoritesMsg cmd)
 
 
 view: Model -> Html Msg
@@ -245,6 +263,23 @@ view model =
                                             , style "border" "1.5px solid #00acee" ][]
                                         _ ->
                                             text ""
+                                ]
+                                , li [][ 
+                                    button [ style "color" "black"
+                                    , class "preview"
+                                    , onClick SwitchFavorites
+                                    , style "border" "none"
+                                    , style "background" "Transparent"
+                                    , style "outline" "none" ][ 
+                                        h4[][ text "Favorites" ]
+                                    ]
+                                    , case model.tab of 
+                                        Favorites _ ->
+                                            hr[ style "width" "90%"
+                                            , style "margin-top" "-5px"
+                                            , style "border" "1.5px solid #00acee" ][]
+                                        _ ->
+                                            text "" 
                                 ]
                                 , li [][ 
                                     button [ style "color" "black"
@@ -351,6 +386,9 @@ view model =
 
                         History tab ->
                             HistoryTab.view tab |> Html.map HistoryMsg
+
+                        Favorites tab ->
+                            FavoritesTab.view tab |> Html.map FavoritesMsg
                 ]
     ]
 

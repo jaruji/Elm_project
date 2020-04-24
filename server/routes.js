@@ -8,6 +8,8 @@ const assert = require('assert')
 const gpc = require('generate-pincode')
 const crypto = require('crypto')
 
+const database = 'database'
+
 const url = 'mongodb://localhost:27017';
 const client = new MongoClient(url, {useNewUrlParser:true, useUnifiedTopology:true})
 const connection = client.connect()
@@ -67,7 +69,7 @@ async function routes(fastify) {
         //log = user has created his account
         res.header("Access-Control-Allow-Origin", "*")  //allows sharing the resource
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        const db = client.db('database')
+        const db = client.db(database)
         let email = req.body.email
         let username = req.body.username
         let cursor = db.collection('accounts').findOne({ $or: [ { email: email }, { username: username } ] }, async function(err, result){
@@ -88,7 +90,7 @@ async function routes(fastify) {
     fastify.post('/account/validate', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').find(req.body).toArray(function(err, docs){
             if(docs.length === 0)
                 res.send({response: "Error"})
@@ -101,7 +103,7 @@ async function routes(fastify) {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         let code = gpc(6)
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').updateOne(req.body, {$set: {verifCode: code}})
         client.close()
         sendActivationMail(req.body.email, code)
@@ -112,7 +114,7 @@ async function routes(fastify) {
         //log this: user has verified his account
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        const db = client.db('database')
+        const db = client.db(database)
         let auth = req.headers.auth
         let username = req.body.username
         let code = req.body.verifCode
@@ -135,7 +137,7 @@ async function routes(fastify) {
     fastify.post('/account/sign_in', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').findOne(req.body, function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
@@ -156,7 +158,7 @@ async function routes(fastify) {
 
     fastify.get('/account/auth', async(req, res) => {
         let auth = req.headers.auth
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').findOne({token: auth}, function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
@@ -177,7 +179,7 @@ async function routes(fastify) {
     })
 
     fastify.patch('/account/password', async(req, res) => {
-        const db = client.db('database')
+        const db = client.db(database)
         let auth = req.headers.auth
         let oldPass = req.body.oldPassword
         let newPass = req.body.newPassword
@@ -197,7 +199,7 @@ async function routes(fastify) {
 
     fastify.delete('/account/delete', async(req, res) => {
         //maybe delete the images from system too?
-        const db = client.db('database')
+        const db = client.db(database)
         let auth = req.headers.auth
         let password = req.body.password
         var user = await db.collection('accounts').findOne({token: auth, password: password}, async function(err, result) {
@@ -220,7 +222,7 @@ async function routes(fastify) {
     fastify.post('/account/user', async(req, res) => {
         //return only public user info! input is username, returns
         let username = req.body.username
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').findOne({username: username}, function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
@@ -244,7 +246,7 @@ async function routes(fastify) {
     fastify.post('/account/posts', async(req, res) => {
         //get preview of user's posts
         let author = req.body.username
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('images').find({author: author}).sort({uploaded: -1}).limit(req.body.limit).toArray()
         let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, ...rest}) => rest)
         output.map(function(key){
@@ -255,7 +257,7 @@ async function routes(fastify) {
 
     fastify.get('/posts/latest', async(req, res) => {
         //get preview of user's posts
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('images').find().sort({uploaded: -1}).limit(5).toArray()
         let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, ...rest}) => rest)
         output.map(function(key){
@@ -271,7 +273,7 @@ async function routes(fastify) {
         let facebook = req.body.facebook
         let twitter = req.body.twitter
         let github = req.body.github
-        const db = client.db('database')
+        const db = client.db(database)
         let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, facebook:facebook, twitter:twitter, github:github, updatedAt: new Date()}})
         res.code(200).send()
         //TODO Update all changes
@@ -289,7 +291,7 @@ async function routes(fastify) {
         console.log("Uploading a file to the server")
         let ID = crypto.randomBytes(10).toString('hex')
         filename = ID + path.extname(req.headers.name);
-        const db = client.db('database')
+        const db = client.db(database)
         if(tags.length == 1 && a[0] == "")
             tags = null
         else
@@ -334,7 +336,7 @@ async function routes(fastify) {
               return;
             }
             else{
-                const db = client.db('database')
+                const db = client.db(database)
                 console.log(`File stored to ${dir}/${filename}`)
                 var cursor = db.collection('accounts').updateOne({username: user}, {$set: {profilePic: link}})   
                 res.code(200).send()
@@ -345,7 +347,7 @@ async function routes(fastify) {
 
     fastify.post('/accounts/q', async(req, res) => {
         let query = req.body.query 
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
         let output = cursor.map(({_id, secretKey, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
         let obj = new Object()
@@ -359,7 +361,7 @@ async function routes(fastify) {
         let page = req.body.page
         let pageSize = 20
         let offset = pageSize * (page - 1)
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, secretKey, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
         let obj = new Object()
@@ -370,7 +372,7 @@ async function routes(fastify) {
 
     fastify.post('/images/q', async (req, res) => { 
         //somehow need to send back the total number of pages so I can map the buttons
-        const db = client.db('database')
+        const db = client.db(database)
         let query = req.body.query
         var cursor = await db.collection('images').find({"title": {$regex: query, $options: 'i'}}).toArray()
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
@@ -385,7 +387,7 @@ async function routes(fastify) {
     
     fastify.post('/images/get', async (req, res) => { 
         //somehow need to send back the total number of pages so I can map the buttons
-        const db = client.db('database')
+        const db = client.db(database)
         let page = req.body.page
         let pageSize = 9
         let offset = pageSize * (page - 1)
@@ -403,7 +405,7 @@ async function routes(fastify) {
     })
 
     fastify.post('/images/id', async (req, res) => {  //image database
-        const db = client.db('database')
+        const db = client.db(database)
         let auth = req.headers.auth
         let id = req.body.id
         let username
@@ -415,7 +417,7 @@ async function routes(fastify) {
     })
 
     fastify.post('/images/stats', async (req, res) => {
-        const db = client.db('database')
+        const db = client.db(database)
         let id = req.body.id
         var cursor = await db.collection('images').findOne({id: id})
         delete cursor._id
@@ -430,7 +432,7 @@ async function routes(fastify) {
     })
 
     fastify.post('/images/getVote', async (req, res) => {
-        const db = client.db('database')
+        const db = client.db(database)
         let id = req.body.id
         let auth = req.headers.auth
         var user = await db.collection('accounts').findOne({token: auth}, async function(err, result){
@@ -461,7 +463,7 @@ async function routes(fastify) {
         let auth = req.headers.auth
         let id = req.body.id
         let vote = req.body.vote
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').findOne({token: auth}, async function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
@@ -504,11 +506,42 @@ async function routes(fastify) {
                 })
         res.code(200).send()
     })
+    
+    fastify.post('/images/favorite', async(req, res) => {
+        let id = req.body.id
+        let auth = req.headers.auth
+        const db = client.db(database)
+        var cursor = await db.collection('accounts').findOne({token: auth}, async function(err, result){
+            if(err){
+                res.code(500).send(new Error("Server error"))
+            }
+            else if(result){
+                var fav = await db.collection('favorites').findOne({username: result.username, id: id}, async function(err, answer){
+                    if(err){
+                        res.code(500).send(new Error("Server error"))    
+                    }
+                    else if(answer){
+                        await db.collection('images').updateOne({id: id}, {$inc:{favorites: -1}})
+                        await db.collection('favorites').deleteOne({username: result.username, id:id})
+                        res.code(200).send()
+                    }
+                    else{
+                        await db.collection('images').updateOne({id: id}, {$inc:{favorites: 1}})
+                        await db.collection('favorites').insertOne({username: result.username, id: id, date: new Date()})
+                        res.code(200).send()
+                    }
+                })
+            }
+            else{
+                res.code(400).send(new Error("Not authorized"))
+            }
+        })
+    })
 
     fastify.delete('/images/delete', async(req, res) =>{
         let id = req.body.id
         let auth = req.headers.auth
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('accounts').findOne({token: auth}, async function(err, result){
             if(err){
                 res.code(500).send(new Error("Server error"))
@@ -547,14 +580,14 @@ async function routes(fastify) {
         let content = req.body.content
         let username = req.body.username
         let id = req.body.id
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('comments').insertOne({content: content, username: username, imageID: id, uploaded: new Date(), points: 0 })
         res.code(200).send()
     })
 
     fastify.post('/comment/get', async (req, res) => {
         let id = req.body.id
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('comments').find({imageID: id}).toArray( async function(err, results){
             if(err){
                 res.code(500).send()
@@ -587,14 +620,14 @@ async function routes(fastify) {
     fastify.patch('/comment/edit', async (req, res) => {
         let content = req.body.content
         let id = req.body.id
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('comments').updateOne({_id: ObjectId(id)}, {$set:{content: content}})
         res.code(200).send()
     })
 
     fastify.delete('/comment/delete', async (req, res) => {
         let id = req.body.id
-        const db = client.db('database')
+        const db = client.db(database)
         var cursor = await db.collection('comments').deleteOne({_id: ObjectId(id)})
         res.code(200).send()
     })
@@ -609,7 +642,7 @@ async function routes(fastify) {
         let page = req.body.page
         let pageSize = 9
         let offset = pageSize * (page - 1) 
-        const db = client.db('database')
+        const db = client.db(database)
         query = new RegExp(`\\b${query}\\b`, 'i')
         var cursor = await db.collection('images').find({tags: { $in: [query] }}).skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
@@ -620,6 +653,30 @@ async function routes(fastify) {
         obj.total = await db.collection('images').countDocuments({tags: { $in: [query] }})
         obj.images = output
         res.send(obj)
+    })
+
+    fastify.get('/tags/trending', async(req, res) => {
+        const db = client.db(database)
+        var cursor = db.collection('images').find().sort({uploaded: -1}).limit(10).toArray(function(err, results){
+            if(err){
+                res.code(500).send()
+            }
+            else if(results){
+                var arr = []
+                results.forEach(key =>{
+                    key.tags.forEach(tag =>{
+                        if(arr.includes(tag)){
+                        }
+                        else
+                            arr.push(tag)
+                    })
+                })
+                res.send(arr)
+            }
+            else{
+                res.code(400).send()
+            }
+        })
     })
 }
 

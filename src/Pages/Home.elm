@@ -9,6 +9,7 @@ import User
 import Server
 import Http
 import Image
+import Tag
 import TimeFormat
 import Json.Decode as Decode
 import Array exposing (..)
@@ -22,23 +23,30 @@ type alias Model =
     , carousel: Carousel.Model
     , user: Maybe User.Model
     , status: Status
+    , tagStatus: TagsStatus
   } 
 
 
 type Msg
   = UpdateCarousel Carousel.Msg
   | Response (Result Http.Error (List Image.Preview))
+  | TagsResponse (Result Http.Error (List String))
 
 type Status
   = Loading
   | Success (List Image.Preview)
   | Failure
 
+type TagsStatus
+  = LoadingTags
+  | SuccessTags (List String)
+  | FailureTags
+
 init: Maybe User.Model -> Nav.Key -> ( Model, Cmd Msg )
 init user key =
   ( 
     Model key (Carousel.init (Array.fromList [ "assets/1.jpg", "assets/2.jpg", "assets/3.jpg", "assets/4.jpg", "assets/7.jpg" ]))
-    user Loading , getLatest
+    user Loading LoadingTags, Cmd.batch[ getLatest, getTrending ]
   )
 
 update: Msg -> Model -> ( Model, Cmd Msg )
@@ -53,6 +61,13 @@ update msg model =
           ({ model | status = Success images }, Cmd.none)
         Err log ->
           ({ model | status = Failure }, Cmd.none)
+
+    TagsResponse response ->
+      case response of
+        Ok tags ->
+          ({ model | tagStatus = SuccessTags tags }, Cmd.none)
+        Err log ->
+          ({ model | tagStatus = FailureTags }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -88,7 +103,26 @@ view model =
       ]
       , div[ style "margin-top" "470px" ][
         div [ style "margin-bottom" "20px" ][
-          h2 [] [ text "Latest posts" ]
+          h2 [] [ text "Trending tags" ]
+          , div [ class "help-block" ] [ text "Overview of trending tags" ]
+          , hr [ style "width" "50%" 
+          , style "margin" "auto" 
+          , style "margin-bottom" "20px" ] []
+          , case model.tagStatus of
+            LoadingTags ->
+              div[ style "margin-top" "20px" ][
+                Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
+              ]
+            FailureTags ->
+              div [ class "alert alert-warning"
+              , style "width" "50%" 
+              , style "margin" "auto" 
+              , style "margin-top" "20px" ][ text "Connection error"]
+            SuccessTags tags ->
+              div [ class "well"
+              , style "width" "50%"
+              , style "margin" "auto" ] (List.map Tag.view tags)
+          , h2 [] [ text "Latest posts" ]
           , div [ class "help-block" ] [ text "Overview of latest images posted to the site" ]
           , hr [ style "width" "70%" 
           , style "margin" "auto" 
@@ -104,7 +138,9 @@ view model =
               , style "margin" "auto" 
               , style "margin-top" "20px" ][ text "Connection error"]
             Success images ->
-              div [] ( List.map showPost images )
+              div[][
+                div [] ( List.map showPost images )
+              ]
         ]
       ]
     ]
@@ -153,6 +189,13 @@ getLatest =
   Http.get{
     url = Server.url ++ "/posts/latest"
     , expect = Http.expectJson Response (Decode.list Image.decodePreview)
+  }
+
+getTrending: Cmd Msg
+getTrending =
+  Http.get{
+    url = Server.url ++ "/tags/trending"
+    , expect = Http.expectJson TagsResponse (Decode.list Decode.string)
   }
 
 subscriptions : Model -> Sub Msg

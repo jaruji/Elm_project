@@ -50,9 +50,6 @@ type Msg
   | Response (Result Http.Error String)
   | Upload
   | RemoveImg
-  | RemoveTitle
-  | RemoveDesc
-  | RemoveTags
   | KeyHandler Int
   | Tag String
 
@@ -131,26 +128,9 @@ update msg model =
     RemoveImg ->
       ({ model | fileStatus = NotLoaded, fileSize = 0 }, Cmd.none)
 
-    RemoveTitle ->
-      ({ model | title = "" }, Cmd.none)
-
-    RemoveDesc ->
-      ({ model | description = "" }, Cmd.none)
-
-    RemoveTags ->
-      ({ model | tags = [] }, Cmd.none)
-
-
-
--- SUBSCRIPTIONS
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.none
-
-
-
--- VIEW
 
 view : Model -> Html Msg
 view model =
@@ -161,8 +141,7 @@ view model =
         , div [ class "help-block" ] [ text "Fill out the following form to upload your image" ]
         , div [ class "panel panel-default", style "width" "60%", style "margin" "20px auto" ][
           div [ class "panel-heading" ] [
-            cancelButton RemoveTitle "28"
-            , input [ id "title"
+            input [ id "title"
             , type_ "text"
             , placeholder "Enter title here..."
             , style "outline" "none"

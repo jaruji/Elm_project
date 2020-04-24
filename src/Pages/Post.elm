@@ -71,6 +71,7 @@ type Msg
   | Upvote
   | Downvote
   | Veto
+  | Favorite
   | Empty
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
@@ -172,6 +173,9 @@ update msg model =
         Veto ->
             (model, rate model "veto")
 
+        Favorite ->
+            (model, favorite model)
+
 view: Model -> Html Msg
 view model =
     case model.status of
@@ -266,15 +270,29 @@ view model =
                                             _ ->
                                                 style "" ""
                                         ][ Icons.arrowDownCircle |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml [] ]
+                                        , button[ style "background" "Transparent"
+                                        , style "border" "none"
+                                        , style "color" "darkgrey"
+                                        , class "social"
+                                        , style "outline" "none"
+                                        , style "transition" "all 0.3s ease 0s"
+                                        , case model.user of
+                                            Nothing ->
+                                                disabled True
+                                            _ ->
+                                                class ""
+                                        , onClick Favorite ][ 
+                                            Icons.heart |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml []
+                                        ]
                                     ]   
                     ]                 
                     , h3 [][
                         text "Description"
                     ]
                     , case image.description of
-                        "No description" ->
+                        "" ->
                             div [ style "font-style" "italic" ][ 
-                                text image.description 
+                                text "No description" 
                             ]
                         _ -> 
                             div[ class "media"
@@ -308,7 +326,7 @@ view model =
                             if user.username == image.author then
                                 button [ class "btn btn-danger" 
                                 , onClick (DeletePost image.id user.token) ][
-                                    text "Delete"
+                                    text "Remove post"
                                 ]
                             else
                                 text ""
@@ -465,6 +483,24 @@ rate model vote =
         , timeout = Nothing
         , tracker = Nothing
     }
+
+favorite: Model -> Cmd Msg
+favorite model =
+    Http.request
+    {
+        method = "POST"
+        , headers = case model.user of
+            Just user ->
+                [ Http.header "auth" user.token ]
+            Nothing ->
+                []
+        , url = Server.url ++ "/images/favorite"
+        , body = Http.jsonBody <| encodeID model.id
+        , expect = Http.expectWhatever RateResponse
+        , timeout = Nothing
+        , tracker = Nothing
+    }
+
 
 loadComments: String -> Cmd Msg
 loadComments id =

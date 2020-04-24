@@ -484,7 +484,7 @@ viewFooter =
   , style "margin-top" "20px" ][ 
     ul [ style "margin-top" "20px" ] [
       li [ class "nav" ][
-        a [ href "https://github.com/jaruji?tab=repositories"
+        a [ href "https://github.com/jaruji/Elm_project"
         , style "color" "white"
         , class "preview" ][
           text "© 2020 Juraj Bedej" 
