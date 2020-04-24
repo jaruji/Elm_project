@@ -373,7 +373,7 @@ async function routes(fastify) {
     fastify.get('/account/favorites', async(req, res) =>{
         let username = req.query.username
         const db = client.db(database)
-        var cursor = await db.collection('favorites').find().toArray(async function(err, results){
+        var cursor = await db.collection('favorites').find({username: username}).toArray(async function(err, results){
             if(err){
                 res.code(500).send(new Error("Server error"))
             }
