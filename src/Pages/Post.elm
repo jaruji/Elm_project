@@ -9,8 +9,6 @@ import Http
 import Task
 import User
 import Server
-import File exposing (File, size, name)
-import File.Select as Select
 import Json.Decode as Decode exposing (Decoder, field, string, int)
 import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)

@@ -484,7 +484,7 @@ async function routes(fastify) {
             }
             else if(result){
                 var fav = await db.collection('favorites').findOne({id:id, username: result.username})
-                if(fav == null)
+                if(fav === null)
                     fav = false
                 else
                     fav = true

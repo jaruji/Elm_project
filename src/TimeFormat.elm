@@ -1,27 +1,28 @@
 module TimeFormat exposing (..)
+import TimeZone
 import Time exposing(Month, toDay, toMonth, toYear)
 
 formatTime: Time.Posix -> String
 formatTime time =
-    String.fromInt(Time.toDay Time.utc time)
-    ++ helper (Time.toDay Time.utc time)
-    ++ " of "
-    ++ monthToString (Time.toMonth Time.utc time)
-    ++ " "
-    ++ String.fromInt (Time.toYear Time.utc time)
+    let
+        zone = TimeZone.europe__bratislava ()
+    in
+    formatDate time
     ++ ", "
-    ++ String.fromInt (Time.toHour Time.utc time)
+    ++ String.fromInt (Time.toHour zone time)
     ++ ":"
-    ++ minuteToString (Time.toMinute Time.utc time)
+    ++ minuteToString (Time.toMinute zone time)
 
 formatDate: Time.Posix -> String
 formatDate time =
-    String.fromInt(Time.toDay Time.utc time)
-    ++ helper (Time.toDay Time.utc time)
-    ++ " of "
-    ++ monthToString (Time.toMonth Time.utc time)
+    let
+        zone = TimeZone.europe__bratislava ()
+    in
+    monthToString (Time.toMonth zone time)
     ++ " "
-    ++ String.fromInt (Time.toYear Time.utc time)
+    ++ String.fromInt(Time.toDay zone time)
+    ++ " "
+    ++ String.fromInt (Time.toYear zone time)
 
 minuteToString: Int -> String
 minuteToString min =
@@ -46,27 +47,27 @@ monthToString: Time.Month -> String
 monthToString month =
     case month of
         Time.Jan ->
-            "Jan"
+            "January"
         Time.Feb ->
-            "Feb"
+            "February"
         Time.Mar ->
-            "Mar"
+            "March"
         Time.Apr ->
-            "Apr"
+            "April"
         Time.May ->
             "May"
         Time.Jun ->
-            "Jun"
+            "June"
         Time.Jul ->
-            "Jul"
+            "July"
         Time.Aug ->
-            "Aug"
+            "August"
         Time.Sep ->
-            "Sep"
+            "September"
         Time.Oct ->
-            "Oct"
+            "October"
         Time.Nov ->
-            "Nov"
+            "November"
         Time.Dec ->
-            "Dec"
+            "December"
 

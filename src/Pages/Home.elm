@@ -171,7 +171,7 @@ showPost post =
             ]
             , div [ class "media-body" ][
               div[ class "help-block" ][
-                  h5 [] [ text ( "Uploaded at " ++ TimeFormat.formatDate post.uploaded ) ]
+                  h5 [] [ text ( "Uploaded on " ++ TimeFormat.formatDate post.uploaded ) ]
                   , h6 [] [
                     text ("by ")
                     , a [ href ("/profile/" ++ post.author), class "preview" ][
