@@ -91,7 +91,7 @@ update msg model =
         ({ model | tab = Security (SecurityTab.getModel (SecurityTab.init model.key model.user) ) }, Cmd.none)
 
     SwitchHistory ->
-        ({ model | tab = History (HistoryTab.getModel ( HistoryTab.init model.user ) ) }, Cmd.none)
+        ({ model | tab = History (HistoryTab.getModel ( HistoryTab.init model.user ) ) }, Cmd.map HistoryMsg (HistoryTab.get model.user.username 4))
 
     SwitchFavorites ->
         ({ model | tab = Favorites (FavoritesTab.getModel (FavoritesTab.init model.user ) ) }, Cmd.map FavoritesMsg (FavoritesTab.getFavs model.fragment))

@@ -63,6 +63,10 @@ function sendActivationMail(receiver, code){
     });
 }
 
+function daysInMonth(month,year) {
+    return new Date(year, month, 0).getDate();
+};
+
 async function routes(fastify) {
 
     fastify.post('/account/sign_up', async (req, res) => {    //registering new account
@@ -210,9 +214,11 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Something went wrong on the server's side"))
             }
             if (result){
-                var delAcc = await db.collection('accounts').deleteMany({token: auth, username: result.username})
-                var delImg = await db.collection('images').deleteMany({author: result.username})
-                var delComm = await db.collection('comments').deleteMany({username: result.username})
+                await db.collection('accounts').deleteMany({token: auth, username: result.username})
+                await db.collection('images').deleteMany({author: result.username})
+                await db.collection('comments').deleteMany({username: result.username})
+                await db.collection('votes').deleteMany({username: result.username})
+                await db.collection('favorites').deleteMany({username: result.username})
                 res.code(200).send()
             } 
             else{
@@ -282,6 +288,44 @@ async function routes(fastify) {
         res.code(200).send()
         //TODO Update all changes
     });
+
+    fastify.get('/account/activity', async(req, res) => {
+        let date = req.query.date
+        let username = req.query.username
+        const db = client.db(database)
+        let cursor = 
+        db.collection('images').aggregate([
+            {$match:
+            {
+                author: username
+            }},
+            {$project:
+            {
+                year: { $year: "$uploaded" },
+                month: { $month: "$uploaded" },
+                day: { $dayOfMonth: "$uploaded" }
+            }}
+        ]).toArray(function(err, results){
+            if(err){
+                res.code(500).send(new Error("Server error"))
+            }
+            else if(results){
+                let output = []
+                for(let i = 1; i < daysInMonth(date, 2020) + 1; i++){
+                    output.push({day: i, count: 0})
+                }
+                results.forEach(key => {
+                    if(key.month == date){
+                        output[key.day - 1].count++
+                    }
+                })
+                res.send(output)
+            }
+            else{
+                res.code(400).send(new Error("Bad request"))
+            }
+        })
+    })
 
     //upload files to the server by posting to this url
     fastify.put('/upload/image', async(req, res) => {

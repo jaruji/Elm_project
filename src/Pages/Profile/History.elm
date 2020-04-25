@@ -1,9 +1,9 @@
 module Pages.Profile.History exposing (..)
-
 import LineChart
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Http
 import User
 import Server
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
@@ -16,6 +16,7 @@ import Json.Encode as Encode exposing (..)
 type alias Model =
   {
     user: User.Model
+    , status: Status
   }
 
 type alias Point =
@@ -24,8 +25,20 @@ type alias Point =
     , y : Float 
   }
 
+type alias Activity =
+    {
+        day: Int
+        , count: Int
+    }
+
+type Status
+  = Loading
+  | Failure
+  | Success (List Activity)
+
 type Msg
   = Empty
+  | Response (Result Http.Error(List Activity))
 
 getModel: (Model, Cmd Msg) -> Model
 getModel (model, cmd) =
@@ -33,13 +46,19 @@ getModel (model, cmd) =
 
 init: User.Model -> (Model, Cmd Msg)
 init user =
-    (Model user, Cmd.none)
+    (Model user Loading, Cmd.none)
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         Empty ->
             (model, Cmd.none)
+        Response response ->
+            case response of
+                Ok act ->
+                    ({ model | status = Success act }, Cmd.none)
+                Err _ ->
+                    ({ model | status = Failure }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -48,11 +67,42 @@ view model =
         , div [ class "help-block" ][
             text "This graph represents your image upload activity in the last month"
         ]
-        , div [ style "margin-left" "20%"] [ LineChart.view1 .x .y
-            [ Point 1 2, Point 5 5, Point 10 10 ] ]
+        , case model.status of
+            Loading ->
+                div[ style "margin-top" "20px" ][
+                    Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
+                ]
+            Failure ->
+                div [ class "alert alert-warning"
+                , style "margin" "auto"
+                , style "width" "60%" ][
+                    text "Failed to load activity data" 
+                ]
+            Success activity ->
+                div [ style "margin-left" "20%"][ 
+                    LineChart.view1 .x .y (List.map toPoint activity) 
+                ]
         , hr [] []
         , h3 [] [ text "My activity" ] 
         , div [ class "help-block" ][
             text "This sections contains logs of your activity" 
         ]
     ]
+
+toPoint: Activity -> Point
+toPoint act =
+    { x = Basics.toFloat act.day, y = Basics.toFloat act.count }
+
+decodeActivity: Decode.Decoder Activity
+decodeActivity =
+    Decode.succeed Activity
+    |> required "day" Decode.int
+    |> required "count" Decode.int
+
+get: String -> Int -> Cmd Msg
+get username date =
+    Http.get{
+        url = Server.url ++ "/account/activity" ++ "?username=" ++ username
+              ++ "&date=" ++ (String.fromInt date)
+        , expect = Http.expectJson Response (Decode.list decodeActivity)
+    }
