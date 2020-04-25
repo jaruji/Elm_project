@@ -587,13 +587,6 @@ getUser state =
     _ ->
       Nothing
 
-
---encode user token retrieved from local storage so we can send it to the server
-tokenEncoder: String -> Encode.Value
-tokenEncoder token =
-  Encode.object[("token", Encode.string token)]
-
-
 --use this function if user token is stored in local storage
 loadUser: String -> Cmd Msg
 loadUser token =

@@ -148,22 +148,10 @@ viewButton model num =
         text (String.fromInt num)
     ]
 
-encodeQuery: String -> Int -> Encode.Value
-encodeQuery query page =
-    Encode.object 
-        [
-            ("query", Encode.string query)
-            , ("page", Encode.int page)
-        ]
-
 getUsers: String -> Int -> Cmd Msg
 getUsers query page =
-    Http.request
-    { method = "POST"
-    , headers = []
-    , url = Server.url ++ "/accounts/query"
-    , body = Http.jsonBody <| encodeQuery query page
+    Http.get
+    { url = Server.url ++ "/accounts/paginate" ++ "?q=" ++ query
+            ++ "&page=" ++ (String.fromInt page)
     , expect = Http.expectJson Response User.decodePreviewContainer
-    , timeout = Nothing
-    , tracker = Nothing
     }

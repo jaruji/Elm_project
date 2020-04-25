@@ -78,7 +78,7 @@ init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
     (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote
     , Cmd.batch [
-        post fragment user
+        get fragment
         , getVote fragment user
         , loadComments fragment
         , Task.perform (\_ -> Empty) (Dom.setViewport 0 0)
@@ -553,14 +553,14 @@ deleteComment id =
         , tracker = Nothing
       }
 
-post: String -> Maybe User.Model -> Cmd Msg
-post id user =
+get: String -> Cmd Msg
+get id =
     Http.request
       {   
-        method = "POST"
+        method = "GET"
         , headers = []
-        , url = Server.url ++ "/images/id"
-        , body = Http.jsonBody <| encodeID id
+        , url = Server.url ++ "/image" ++ "?id=" ++ id
+        , body = Http.emptyBody
         , expect = Http.expectJson Response Image.decodeImage
         , timeout = Nothing
         , tracker = Nothing

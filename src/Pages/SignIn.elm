@@ -65,7 +65,7 @@ update msg model =
       else if model.password == "" then
         ( {model | warning = "Enter your password"}, Cmd.none, Session.NoUpdate )
       else
-        ( {model | status = Loading,  warning = "Loading"}, post model, Session.NoUpdate )
+        ( {model | status = Loading,  warning = "Loading"}, login model, Session.NoUpdate )
 
     Response response ->
       case response of
@@ -161,22 +161,10 @@ viewValidation model =
   else
     div [ style "color" "red" ] [ text "Passwords do not match!" ]
 
-accountEncoder : Model -> Encode.Value
-accountEncoder model =
-  Encode.object 
-    [ ( "username", Encode.string model.name )
-    , ( "password", Encode.string (Crypto.sha256 model.password) )
-    ]
-
-post : Model -> Cmd Msg
-post model =
-  Http.request
-    { method = "POST"
-    , headers = []
-    , url = Server.url ++ "/account/sign_in"
-    --, url = "http://httpbin.org/post"
-    , body = Http.jsonBody <| accountEncoder model 
-    , expect = Http.expectJson Response {--(field "response" Decode.string)--} User.decodeUser
-    , timeout = Nothing
-    , tracker = Nothing
+login : Model -> Cmd Msg
+login model =
+  Http.get
+    { url = Server.url ++ "/account/sign_in" ++ "?username=" 
+            ++ model.name ++ "&password=" ++ (Crypto.sha256 model.password)
+    , expect = Http.expectJson Response User.decodeUser
     }

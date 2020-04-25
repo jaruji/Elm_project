@@ -49,12 +49,12 @@ init user key page sort =
     Just int ->
       case sort of
         Just string ->
-          (Model Loading int key string, post string int)
+          (Model Loading int key string, get string int)
         _ ->
-          (Model Loading int key "newest", post "newest" int)
+          (Model Loading int key "newest", get "newest" int)
 
     Nothing ->
-      ( Model Loading 1 key "newest", post "newest" 1)
+      ( Model Loading 1 key "newest", get "newest" 1)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -191,11 +191,21 @@ encodeQuery sort page =
       , ("page", Encode.int page)
     ]
 
-post : String -> Int -> Cmd Msg
-post sort page =
-    Http.post
+getSort: String -> String
+getSort sort =
+  case sort of
+        "popular" ->
+          "views"
+        "rating" ->
+          "points"
+        _ ->
+          "uploaded"
+
+get : String -> Int -> Cmd Msg
+get sort page =
+    Http.get
       { 
-        url = Server.url ++ "/images/get"
-        , body = Http.jsonBody <| encodeQuery sort page
+        url = Server.url ++ "/images/get" ++ "?page=" ++ (String.fromInt page)
+            ++ "&sort=" ++ (getSort sort) ++ "&order=" ++ (String.fromInt -1)
         , expect = Http.expectJson Response Image.decodePreviewContainer
       }

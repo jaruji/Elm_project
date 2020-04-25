@@ -326,14 +326,6 @@ viewVerify model =
     ]
   ]
 
-codeEncoder: Model -> Encode.Value
-codeEncoder model =
-    Encode.object
-    [
-        ("verifCode", Encode.string model.code )
-        , ( "username", Encode.string model.user.username)
-    ]
-
 emailEncoder: String -> Encode.Value
 emailEncoder email =
   Encode.object
@@ -377,19 +369,19 @@ deleteAccount model =
 
 requestMail: String -> Cmd Msg
 requestMail email = 
-    Http.post {
-      url = Server.url ++ "/mailer/send"
-      , body = Http.jsonBody <| emailEncoder email
+    Http.get {
+      url = Server.url ++ "/mailer/send" ++ "?mail=" ++ email
       , expect = Http.expectWhatever MailResponse
     }
 
 verifyCode: Model -> Cmd Msg
 verifyCode model =
     Http.request {
-        method = "POST"
+        method = "GET"
         , headers = [ Http.header "auth" model.user.token ]
-        , url = Server.url ++ "/account/verify"
-        , body = Http.jsonBody <| codeEncoder model
+        , url = Server.url ++ "/account/verify" ++ "?username=" 
+                ++ model.user.username ++ "&code=" ++ model.code
+        , body = Http.emptyBody
         , expect = Http.expectJson VerifyResponse (field "response" Decode.bool)
         , timeout = Nothing
         , tracker = Nothing

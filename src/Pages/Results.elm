@@ -147,24 +147,18 @@ viewFailure error =
         text error
     ]
 
-encodeQuery: String -> Encode.Value
-encodeQuery q =
-    Encode.object [("query", Encode.string q)]
-
 getUsers: String -> Cmd Msg
 getUsers q =
-    Http.post
+    Http.get
     { 
-    url = Server.url ++ "/accounts/q"
-    , body = Http.jsonBody <| encodeQuery q
+    url = Server.url ++ "/accounts/search" ++ "?q=" ++ q
     , expect = Http.expectJson UsersResponse User.decodePreviewContainer
     }
 
 getPosts: String -> Cmd Msg
 getPosts q =
-    Http.post
+    Http.get
     { 
-    url = Server.url ++ "/images/q"
-    , body = Http.jsonBody <| encodeQuery q
+    url = Server.url ++ "/images/search" ++ "?q=" ++ q
     , expect = Http.expectJson ImageResponse Image.decodePreviewContainer
     }

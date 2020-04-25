@@ -411,14 +411,10 @@ put file user =
 
 loadUser: String -> Cmd Msg
 loadUser username = 
-  Http.request
-    { method = "POST"
-    , headers = []
-    , url = Server.url ++ "/account/user"
-    , body = Http.jsonBody <| (stringEncoder "username" username)
+  Http.get
+    { 
+    url = Server.url ++ "/account/user" ++ "?username=" ++ username
     , expect = Http.expectJson Response User.decodeUserNotLoggedIn
-    , timeout = Nothing
-    , tracker = Nothing
     }
 
 getPostsEncoder: String -> Int -> Encode.Value
@@ -431,13 +427,9 @@ getPostsEncoder username limit =
 
 getPosts: String -> Int -> Cmd Msg
 getPosts username limit =
-    Http.request
-    {
-        method = "POST"
-        , headers = []
-        , url = Server.url ++ "/account/posts"
-        , body = Http.jsonBody <| getPostsEncoder username limit
+    Http.get
+    {   
+        url = Server.url ++ "/account/posts" ++ "?username=" ++ username 
+              ++ "&limit=" ++ (String.fromInt limit) 
         , expect = Http.expectJson PostsResponse (Decode.list Image.decodePreview)
-        , timeout = Nothing
-        , tracker = Nothing
     }
