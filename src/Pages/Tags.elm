@@ -139,22 +139,10 @@ viewButton model num =
         text (String.fromInt num)
     ]
 
-encodeQuery: String -> Int -> Encode.Value
-encodeQuery query page =
-    Encode.object 
-        [
-            ("query", Encode.string query)
-            , ("page", Encode.int page)
-        ]
-
 getImages: String -> Int -> Cmd Msg
 getImages query page =
-    Http.request
-    { method = "POST"
-    , headers = []
-    , url = Server.url ++ "/tags/query"
-    , body = Http.jsonBody <| encodeQuery query page
+    Http.get
+    { url = Server.url ++ "/tags" ++ "?q=" ++ query 
+            ++ "&page=" ++ (String.fromInt page) 
     , expect = Http.expectJson Response Image.decodePreviewContainer
-    , timeout = Nothing
-    , tracker = Nothing
     }

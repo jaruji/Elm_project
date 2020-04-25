@@ -458,9 +458,9 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
-    fastify.post('/images/stats', async (req, res) => {
+    fastify.get('/images/stats', async (req, res) => {
         const db = client.db(database)
-        let id = req.body.id
+        let id = req.query.id
         var cursor = await db.collection('images').findOne({id: id})
         delete cursor._id
         delete cursor.file
@@ -473,9 +473,9 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
-    fastify.post('/images/getVote', async (req, res) => {
+    fastify.get('/images/getVote', async (req, res) => {
         const db = client.db(database)
-        let id = req.body.id
+        let id = req.query.id
         let auth = req.headers.auth
         var user = await db.collection('accounts').findOne({token: auth}, async function(err, result){
             if(err){
@@ -627,8 +627,8 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
-    fastify.post('/comment/get', async (req, res) => {
-        let id = req.body.id
+    fastify.get('/comment/get', async (req, res) => {
+        let id = req.query.id
         const db = client.db(database)
         var cursor = await db.collection('comments').find({imageID: id}).toArray( async function(err, results){
             if(err){
@@ -674,14 +674,9 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
-    fastify.get('/carousel/get', async (req, res) => {
-
-
-    })
-
-    fastify.post('/tags/query', async(req, res) => {
-        let query = req.body.query
-        let page = req.body.page
+    fastify.get('/tags', async(req, res) => {
+        let query = req.query.q
+        let page = parseInt(req.query.page)
         let pageSize = 9
         let offset = pageSize * (page - 1) 
         const db = client.db(database)

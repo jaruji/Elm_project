@@ -504,10 +504,9 @@ favorite model =
 
 loadComments: String -> Cmd Msg
 loadComments id =
-    Http.post
+    Http.get
       { 
-        url = Server.url ++ "/comment/get"
-        , body = Http.jsonBody <| encodeID id
+        url = Server.url ++ "/comment/get" ++ "?id=" ++ id
         , expect = Http.expectJson LoadComments (Decode.list Comment.commentDecoder)
       }
 
@@ -580,22 +579,17 @@ deletePost id token =
       }
 loadStats: String -> Cmd Msg
 loadStats id =
-    Http.request
+    Http.get
       {   
-        method = "POST"
-        , headers = []
-        , url = Server.url ++ "/images/stats"
-        , body = Http.jsonBody <| encodeID id
+        url = Server.url ++ "/images/stats" ++ "?id=" ++ id
         , expect = Http.expectJson StatsResponse Stats.statsDecoder
-        , timeout = Nothing
-        , tracker = Nothing
       }
 
 getVote: String -> Maybe User.Model -> Cmd Msg
 getVote id mbyUser =
     Http.request
       {   
-        method = "POST"
+        method = "GET"
         , headers = [
             case mbyUser of 
                 Just user ->
@@ -603,8 +597,8 @@ getVote id mbyUser =
                 Nothing ->
                     Http.header "auth" ""
         ]
-        , url = Server.url ++ "/images/getVote"
-        , body = Http.jsonBody <| encodeID id
+        , url = Server.url ++ "/images/getVote" ++ "?id=" ++ id
+        , body = Http.emptyBody
         , expect = Http.expectJson VoteResponse (field "vote" Decode.string)
         , timeout = Nothing
         , tracker = Nothing
