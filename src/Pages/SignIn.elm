@@ -16,9 +16,6 @@ import Session
 import Server
 import User exposing (..)
 
--- MODEL
-
-
 type alias Model =
   { name : String
   , password : String
@@ -61,18 +58,18 @@ update msg model =
 
     Submit ->
       if model.name == "" then
-        ( {model | warning = "Enter your username"}, Cmd.none, Session.NoUpdate )
+        ({ model | warning = "Enter your username" }, Cmd.none, Session.NoUpdate )
       else if model.password == "" then
-        ( {model | warning = "Enter your password"}, Cmd.none, Session.NoUpdate )
+        ({ model | warning = "Enter your password" }, Cmd.none, Session.NoUpdate )
       else
-        ( {model | status = Loading,  warning = "Loading"}, login model, Session.NoUpdate )
+        ({model | status = Loading,  warning = "Loading" }, login model, Session.NoUpdate )
 
     Response response ->
       case response of
         Ok user ->
           ( { model | status = Success "" }, Cmd.batch [ Nav.pushUrl model.key ("/"), User.encodeForStorage user ], Session.Update user )
         Err log ->
-          ( {model | status = Failure log}, Cmd.none, Session.NoUpdate )
+          ( { model | status = Failure log }, Cmd.none, Session.NoUpdate )
 
 -- VIEW
 

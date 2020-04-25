@@ -27,7 +27,6 @@ type alias Model =
     , code: String
     , password: String
     , newPassword: String
-    , newPasswordAgain: String
     , passStatus: Status
     , delStatus: Status
     , mailStatus: Status
@@ -36,7 +35,7 @@ type alias Model =
 
 init: Nav.Key -> User.Model -> (Model, Cmd Msg)
 init key user =
-    (Model user key "" "" "" "" Loading None Loading Loading, Cmd.none)
+    (Model user key "" "" "" Loading None Loading Loading, Cmd.none)
 
 type Msg
   = Empty
@@ -44,7 +43,6 @@ type Msg
   | Code String
   | Password String
   | NewPassword String
-  | NewPasswordAgain String
   | ChangePassword
   | PasswordResponse (Result Http.Error())
   | Verify
@@ -102,9 +100,6 @@ update msg model =
 
         NewPassword string ->
             ({ model | newPassword = string }, Cmd.none)
-
-        NewPasswordAgain string ->
-            ({ model | newPasswordAgain = string }, Cmd.none)
 
         Delete ->
             ({ model | delStatus = Loading }, Cmd.none)
@@ -206,19 +201,6 @@ view model =
                             , class "form-control"
                             , Html.Attributes.value model.newPassword
                             , onInput NewPassword ] []
-                        ]
-                    ]
-                ]
-                , div [ class "form-group row"
-                , style "padding-bottom" "15px" ] [ 
-                    div [ class "col-md-offset-2 col-md-8" ] [
-                        div[ class "form-group has-feedback" ][
-                            label [ for "newA" ] [ text "New Password Again:" ]
-                            , input [ id "newA"
-                            , type_ "password"
-                            , class "form-control"
-                            , Html.Attributes.value model.newPasswordAgain
-                            , onInput NewPasswordAgain ] []
                         ]
                     ]
                 ]

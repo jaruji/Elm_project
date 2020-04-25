@@ -391,6 +391,7 @@ async function routes(fastify) {
                             res.code(500).send()
                         }
                         else if(result){
+                            result["uploaded"] = results[i].date
                             output.push(result)
                             if(i === results.length - 1){
                                 output.map(function(key){
@@ -458,7 +459,7 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
-    fastify.get('/images/stats', async (req, res) => {
+    fastify.get('/image/stats', async (req, res) => {
         const db = client.db(database)
         let id = req.query.id
         var cursor = await db.collection('images').findOne({id: id})
@@ -473,34 +474,39 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
-    fastify.get('/images/getVote', async (req, res) => {
+    fastify.get('/image/info', async (req, res) => {
         const db = client.db(database)
         let id = req.query.id
         let auth = req.headers.auth
         var user = await db.collection('accounts').findOne({token: auth}, async function(err, result){
             if(err){
-                res.code(500).send()
+                res.code(500).send(new Error("Server error"))
             }
             else if(result){
+                var fav = await db.collection('favorites').findOne({id:id, username: result.username})
+                if(fav == null)
+                    fav = false
+                else
+                    fav = true
                 var cursor = await db.collection('votes').findOne({id: id, username: result.username}, function(err, result){
                     if(err){
                         res.code(500).send()
                     }
                     else if(result){
-                        res.send({vote: result.vote})
+                        res.send({vote: result.vote, favorite: fav})
                     }
                     else{
-                        res.send({vote: "none"})
+                        res.send({vote: "none", favorite: fav})
                     }
                 })
             }
             else{
-                res.send({vote: "invalid"})
+                res.send({vote: "invalid", favorite: false})
             }
         })
     })
 
-    fastify.post('/images/rate', async (req, res) => {
+    fastify.post('/image/rate', async (req, res) => {
         //log this: user has rated an image
         let auth = req.headers.auth
         let id = req.body.id
@@ -549,7 +555,7 @@ async function routes(fastify) {
         res.code(200).send()
     })
     
-    fastify.post('/images/favorite', async(req, res) => {
+    fastify.post('/image/favorite', async(req, res) => {
         let id = req.body.id
         let auth = req.headers.auth
         const db = client.db(database)
@@ -580,7 +586,7 @@ async function routes(fastify) {
         })
     })
 
-    fastify.delete('/images/delete', async(req, res) =>{
+    fastify.delete('/image/delete', async(req, res) =>{
         let id = req.body.id
         let auth = req.headers.auth
         const db = client.db(database)

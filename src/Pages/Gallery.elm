@@ -177,20 +177,6 @@ viewButton model num =
       text (String.fromInt num)
   ]
 
-encodeQuery: String -> Int -> Encode.Value
-encodeQuery sort page =
-  Encode.object
-    [
-      case sort of
-        "popular" ->
-          ("views", Encode.int -1)
-        "rating" ->
-          ("points", Encode.int -1)
-        _ ->
-          ("uploaded", Encode.int -1)
-      , ("page", Encode.int page)
-    ]
-
 getSort: String -> String
 getSort sort =
   case sort of

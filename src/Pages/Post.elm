@@ -13,6 +13,7 @@ import File exposing (File, size, name)
 import File.Select as Select
 import Json.Decode as Decode exposing (Decoder, field, string, int)
 import Json.Encode as Encode exposing (..)
+import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import FeatherIcons as Icons
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Image
@@ -31,7 +32,13 @@ type alias Model =
     , comment: String
     , id: String
     , stats: StatsStatus
-    , vote: VoteStatus
+    , vote: InfoStatus
+  }
+
+type alias Info =
+  {
+    vote: String
+    , favorite: Bool
   }
 
 type Status
@@ -39,10 +46,10 @@ type Status
   | Success Image.Model
   | Failure
 
-type VoteStatus
-  = LoadingVote
-  | FailureVote
-  | SuccessVote String
+type InfoStatus
+  = LoadingInfo
+  | FailureInfo
+  | SuccessInfo Info
 
 type CommentStatus
   = LoadingComments
@@ -61,7 +68,7 @@ type Msg
   | CommentResponse (Result Http.Error())
   | RateResponse (Result Http.Error())
   | StatsResponse (Result Http.Error(Stats.Model))
-  | VoteResponse (Result Http.Error String)
+  | InfoResponse (Result Http.Error Info)
   | ManageCommentResponse (Result Http.Error())
   | DeleteResponse (Result Http.Error())
   | Comment String
@@ -76,10 +83,10 @@ type Msg
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingVote
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo
     , Cmd.batch [
         get fragment
-        , getVote fragment user
+        , getUserInfo fragment user
         , loadComments fragment
         , Task.perform (\_ -> Empty) (Dom.setViewport 0 0)
     ])
@@ -113,7 +120,7 @@ update msg model =
         RateResponse response ->
             case response of
                 Ok _ ->
-                    (model, Cmd.batch [loadStats model.id, getVote model.id model.user])
+                    (model, Cmd.batch [loadStats model.id, getUserInfo model.id model.user])
                 Err log ->
                     (model, Cmd.none)
 
@@ -147,12 +154,12 @@ update msg model =
                 Err log ->
                     (model, Cmd.none)
 
-        VoteResponse response ->
+        InfoResponse response ->
             case response of
-                Ok string -> 
-                    ({ model | vote = SuccessVote string }, Cmd.none)
+                Ok info -> 
+                    ({ model | vote = SuccessInfo info }, Cmd.none)
                 Err log ->
-                    ({ model | vote = FailureVote }, Cmd.none)
+                    ({ model | vote = FailureInfo }, Cmd.none)
 
         Submit ->
             case model.user of
@@ -186,7 +193,7 @@ view model =
 
         Failure ->
             div[] [
-                text "Mission failed..."
+                text "Image failed to load..."
             ]
 
         Success image ->
@@ -226,11 +233,11 @@ view model =
                     ]
                     , div [ style "margin-top" "10px" ][
                         case model.vote of
-                                LoadingVote ->
+                                LoadingInfo ->
                                     text "Loading vote"
-                                FailureVote ->
+                                FailureInfo ->
                                     text "Failed to load vote"
-                                SuccessVote string ->
+                                SuccessInfo info ->
                                     div[][
                                         button [ style "background" "Transparent"
                                         , style "border" "none"
@@ -238,7 +245,7 @@ view model =
                                         , class "social"
                                         , style "outline" "none"
                                         , style "transition" "all 0.3s ease 0s"
-                                        , case string of
+                                        , case info.vote of
                                             "upvote" ->
                                                 style "color" "lime"
                                                 --, onClick Veto
@@ -257,7 +264,7 @@ view model =
                                         , class "social"
                                         , style "outline" "none"
                                         , style "transition" "all 0.3s ease 0s"
-                                        , case string of
+                                        , case info.vote of
                                             "downvote" ->
                                                 style "color" "red"
                                                 --, onClick Veto
@@ -281,6 +288,11 @@ view model =
                                                 disabled True
                                             _ ->
                                                 class ""
+                                        , case info.favorite of
+                                            True ->
+                                                style "color" "red"
+                                            False ->
+                                                style "" ""
                                         , onClick Favorite ][ 
                                             Icons.heart |> Icons.withSize 30 |> Icons.withStrokeWidth 2 |> Icons.toHtml []
                                         ]
@@ -405,7 +417,7 @@ viewComment model comment =
     , div[ class "media-body well"
     , style "text-align" "left" ][
         div [ class "media-heading" ][
-            div [ class "help-block" ] [
+            div [ class "help-block" ][
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
                 , text ( " on " ++ (TimeFormat.formatTime comment.date))
                 , case model.user of
@@ -477,7 +489,7 @@ rate model vote =
                 [ Http.header "auth" user.token ]
             Nothing ->
                 []
-        , url = Server.url ++ "/images/rate"
+        , url = Server.url ++ "/image/rate"
         , body = Http.jsonBody <| (encodeRate vote model.id)
         , expect = Http.expectWhatever RateResponse
         , timeout = Nothing
@@ -494,7 +506,7 @@ favorite model =
                 [ Http.header "auth" user.token ]
             Nothing ->
                 []
-        , url = Server.url ++ "/images/favorite"
+        , url = Server.url ++ "/image/favorite"
         , body = Http.jsonBody <| encodeID model.id
         , expect = Http.expectWhatever RateResponse
         , timeout = Nothing
@@ -571,7 +583,7 @@ deletePost id token =
       {   
         method = "DELETE"
         , headers = [ Http.header "auth" token ]
-        , url = Server.url ++ "/images/delete"
+        , url = Server.url ++ "/image/delete"
         , body = Http.jsonBody <| encodeID id
         , expect = Http.expectWhatever DeleteResponse
         , timeout = Nothing
@@ -581,12 +593,19 @@ loadStats: String -> Cmd Msg
 loadStats id =
     Http.get
       {   
-        url = Server.url ++ "/images/stats" ++ "?id=" ++ id
+        url = Server.url ++ "/image/stats" ++ "?id=" ++ id
         , expect = Http.expectJson StatsResponse Stats.statsDecoder
       }
 
-getVote: String -> Maybe User.Model -> Cmd Msg
-getVote id mbyUser =
+decodeUserInfo: Decode.Decoder Info
+decodeUserInfo =
+    Decode.succeed Info
+    |> required "vote" Decode.string
+    |> required "favorite" Decode.bool
+
+
+getUserInfo: String -> Maybe User.Model -> Cmd Msg
+getUserInfo id mbyUser =
     Http.request
       {   
         method = "GET"
@@ -597,9 +616,9 @@ getVote id mbyUser =
                 Nothing ->
                     Http.header "auth" ""
         ]
-        , url = Server.url ++ "/images/getVote" ++ "?id=" ++ id
+        , url = Server.url ++ "/image/info" ++ "?id=" ++ id
         , body = Http.emptyBody
-        , expect = Http.expectJson VoteResponse (field "vote" Decode.string)
+        , expect = Http.expectJson InfoResponse decodeUserInfo
         , timeout = Nothing
         , tracker = Nothing
       }
