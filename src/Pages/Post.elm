@@ -33,6 +33,7 @@ type alias Model =
     , vote: InfoStatus
     , editing: Maybe String
     , edit: String
+    , deleting: Maybe String
   }
 
 type alias Info =
@@ -73,7 +74,6 @@ type Msg
   | DeleteResponse (Result Http.Error())
   | Comment String
   | Submit
-  | DeleteComment String
   | DeletePost String String
   | Upvote
   | Downvote
@@ -83,11 +83,14 @@ type Msg
   | EditCancel
   | EditConfirm
   | EditComment String
+  | DeleteComment String
+  | DeleteCommentCancel
+  | DeleteCommentConfirm
   | Empty
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo Nothing ""
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo Nothing "" Nothing
     , Cmd.batch [
         get fragment
         , getUserInfo fragment user
@@ -137,9 +140,6 @@ update msg model =
 
         Comment string ->
             ({ model | comment = string }, Cmd.none)
-
-        DeleteComment id ->
-            (model, deleteComment id)
 
         DeletePost id token ->
             (model, deletePost id token)
@@ -202,6 +202,19 @@ update msg model =
                     ({ model | edit = "", editing = Nothing }, editComment id model.edit)
                 Nothing ->
                     ({ model | edit = "", editing = Nothing }, Cmd.none)
+
+        DeleteComment id ->
+            ({ model | deleting = (Just id) }, Cmd.none)
+
+        DeleteCommentConfirm ->
+            case model.deleting of
+                Just id ->
+                    ({ model | deleting = Nothing }, deleteComment id)
+                Nothing ->
+                    ({ model | deleting = Nothing }, Cmd.none)
+
+        DeleteCommentCancel ->
+            ({ model | deleting = Nothing }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -510,6 +523,22 @@ viewComment model comment =
                 ]
             else
                 Markdown.toHtml [ class "content" ]  comment.content
+            , if model.deleting == (Just comment.id) then
+                div[][
+                        button [ class "btn btn-danger btn-sm"
+                        , onClick DeleteCommentConfirm
+                        , class "pull-right" ][
+                            text "Confirm"
+                        ]
+                        , button [ class "btn btn-default btn-sm"
+                        , onClick DeleteCommentCancel
+                        , style "margin-right" "5px"
+                        , class "pull-right" ][
+                            text "Cancel"
+                        ]
+                    ]
+            else
+                text ""
         ]
     ]
  ]
