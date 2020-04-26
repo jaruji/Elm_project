@@ -40,9 +40,9 @@ type alias Model =
 init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg)
 init key user fragment = 
     if fragment == user.username then
-        (Model user key Information fragment Success LoadingPosts, Cmd.batch [ getPosts fragment postCount, Title.title user.username])
+        (Model user key Information fragment Success LoadingPosts, Cmd.batch [ getPosts fragment postCount ])
     else 
-        (Model user key Information fragment Loading LoadingPosts, Cmd.batch [ loadUser fragment, getPosts fragment postCount, Title.title fragment ])
+        (Model user key Information fragment Loading LoadingPosts, Cmd.batch [ loadUser fragment, getPosts fragment postCount ])
 
 type Status
   = Loading

@@ -31,6 +31,8 @@ type alias Model =
     , id: String
     , stats: StatsStatus
     , vote: InfoStatus
+    , editing: Maybe String
+    , edit: String
   }
 
 type alias Info =
@@ -77,11 +79,15 @@ type Msg
   | Downvote
   | Veto
   | Favorite
+  | Edit String String
+  | EditCancel
+  | EditConfirm
+  | EditComment String
   | Empty
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo Nothing ""
     , Cmd.batch [
         get fragment
         , getUserInfo fragment user
@@ -180,6 +186,22 @@ update msg model =
 
         Favorite ->
             (model, favorite model)
+
+        EditComment string ->
+            ({ model | edit = string }, Cmd.none)
+
+        Edit id content ->
+            ({ model | editing = (Just id), edit = content }, Cmd.none)
+
+        EditCancel ->
+            ({ model | editing = Nothing, edit = "" }, Cmd.none)
+
+        EditConfirm ->
+            case model.editing of
+                Just id ->
+                    ({ model | edit = "", editing = Nothing }, editComment id model.edit)
+                Nothing ->
+                    ({ model | edit = "", editing = Nothing }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -399,7 +421,7 @@ view model =
 viewComment: Model -> Comment.Model -> Html Msg
 viewComment model comment =
     div[ class "media"
-    , style "width" "50%"
+    , style "width" "60%"
     , style "margin" "auto"
     , style "margin-bottom" "20px"  ][
     div[ class "media-left" ][
@@ -418,6 +440,11 @@ viewComment model comment =
             div [ class "help-block" ][
                 a [ href ("/profile/" ++ comment.username) ][ text comment.username ]   
                 , text ( " on " ++ (TimeFormat.formatTime comment.date))
+                , case comment.edited of
+                    Just date ->
+                        text (" • Edited on " ++ (TimeFormat.formatTime date ))
+                    Nothing ->
+                        text ""
                 , case model.user of
                     Just user ->
                         if user.username == comment.username then
@@ -441,6 +468,7 @@ viewComment model comment =
                                     , style "width" "20px"
                                     , style "border" "none"
                                     , style "background" "Transparent"
+                                    , onClick (Edit comment.id comment.content)
                                     , title "Edit"
                                     , style "outline" "none" ][ span [ 
                                         class "glyphicon glyphicon-pencil" ] [] 
@@ -453,7 +481,35 @@ viewComment model comment =
             ]
         ]
         , div[][
-            Markdown.toHtml [ class "content" ]  comment.content
+            if model.editing == (Just comment.id) then
+                div[][
+                    textarea [ id "edit"
+                    , placeholder comment.content
+                    , style "outline" "none"
+                    , style "border" "none"
+                    , style "width" "100%"
+                    , style "min-height" "100px"
+                    , style "resize" "vertical"
+                    , style "background" "Transparent"
+                    , onInput EditComment
+                    , Html.Attributes.value model.edit
+                    ] []
+                    , div[][
+                        button [ class "btn btn-success btn-sm"
+                        , onClick EditConfirm
+                        , class "pull-right" ][
+                            text "Confirm"
+                        ]
+                        , button [ class "btn btn-default btn-sm"
+                        , onClick EditCancel
+                        , style "margin-right" "5px"
+                        , class "pull-right" ][
+                            text "Cancel"
+                        ]
+                    ]
+                ]
+            else
+                Markdown.toHtml [ class "content" ]  comment.content
         ]
     ]
  ]

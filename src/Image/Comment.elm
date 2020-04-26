@@ -13,6 +13,7 @@ type alias Model =
     , date: Time.Posix
     , points: Int
     , id: String
+    , edited: Maybe Time.Posix
   }
 
 commentDecoder: Decode.Decoder Model
@@ -24,3 +25,4 @@ commentDecoder =
         |> required "uploaded" DecodeExtra.datetime
         |> required "points" Decode.int
         |> required "_id" Decode.string
+        |> optional "edited" (nullable DecodeExtra.datetime) Nothing

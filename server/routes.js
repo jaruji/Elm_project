@@ -710,10 +710,10 @@ async function routes(fastify) {
     })
 
     fastify.patch('/comment/edit', async (req, res) => {
-        let content = req.body.content
+        let content = req.body.comment
         let id = req.body.id
         const db = client.db(database)
-        var cursor = await db.collection('comments').updateOne({_id: ObjectId(id)}, {$set:{content: content}})
+        var cursor = await db.collection('comments').updateOne({_id: ObjectId(id)}, {$set:{content: content, edited: new Date()}})
         res.code(200).send()
     })
 

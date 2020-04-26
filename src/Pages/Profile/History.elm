@@ -1,5 +1,26 @@
 module Pages.Profile.History exposing (..)
 import LineChart
+import LineChart.Colors as Colors
+import LineChart.Junk as Junk
+import LineChart.Area as Area
+import LineChart.Axis as Axis
+import LineChart.Axis.Title as Title
+import LineChart.Axis.Range as Range
+import LineChart.Axis.Line as AxisLine
+import LineChart.Axis.Ticks as Ticks
+import LineChart.Axis.Tick as Tick
+import LineChart.Axis.Values as Values
+import LineChart.Junk as Junk
+import LineChart.Dots as Dots
+import LineChart.Grid as Grid
+import LineChart.Dots as Dots
+import LineChart.Line as Line
+import LineChart.Colors as Colors
+import LineChart.Events as Events
+import LineChart.Legends as Legends
+import LineChart.Container as Container
+import LineChart.Interpolation as Interpolation
+import LineChart.Axis.Intersection as Intersection
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -8,9 +29,10 @@ import User
 import Server
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Json.Decode as Decode exposing (Decoder, field, string, int)
-import Json.Decode.Extra as DecodeExtra
 import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import Json.Encode as Encode exposing (..)
+import Time
+import TimeFormat
 
 
 type alias Model =
@@ -79,8 +101,24 @@ view model =
                     text "Failed to load activity data" 
                 ]
             Success activity ->
-                div [ style "margin-left" "20%"][ 
-                    LineChart.view1 .x .y (List.map toPoint activity) 
+                div [ style "margin-left" "5%"][ 
+                    LineChart.viewCustom 
+                    { x = xConfig (List.length activity)
+                      , y = Axis.default 700 "Uploads" .y
+                      , container = Container.responsive "line-chart-1"
+                      , interpolation = Interpolation.default
+                      , intersection = Intersection.default
+                      , legends = Legends.default
+                      , events = Events.default
+                      , junk = Junk.default
+                      , grid = Grid.dots 0.5 Colors.blue
+                      , area = Area.default
+                      , line = Line.default
+                      , dots = Dots.default
+                    }
+                    [
+                        LineChart.line Colors.blue Dots.square "Activity" (List.map toPoint activity)
+                    ]
                 ]
         , hr [] []
         , h3 [] [ text "My activity" ] 
@@ -88,6 +126,22 @@ view model =
             text "This sections contains logs of your activity" 
         ]
     ]
+
+xConfig: Int -> Axis.Config Point msg
+xConfig tickCount =
+  Axis.custom
+    { title = Title.default "Day"
+    , variable = Just << .x
+    , pixels = 1000
+    , range = Range.default
+    , axisLine = AxisLine.rangeFrame Colors.gray
+    , ticks = ticksConfig tickCount
+    }
+
+
+ticksConfig: Int -> Ticks.Config msg
+ticksConfig ticks =
+    Ticks.int ticks
 
 toPoint: Activity -> Point
 toPoint act =

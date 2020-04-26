@@ -24,6 +24,13 @@ formatDate time =
     ++ " "
     ++ String.fromInt (Time.toYear zone time)
 
+getMonth: Time.Posix -> String
+getMonth time =
+    let
+        zone = TimeZone.europe__bratislava ()
+    in
+        monthToString (Time.toMonth zone time)
+
 minuteToString: Int -> String
 minuteToString min =
     if min < 10 then
