@@ -145,7 +145,7 @@ async function routes(fastify) {
         const db = client.db(database)
         let username = req.query.username
         let password = req.query.password
-        var cursor = await db.collection('accounts').findOne({username: username, password: password}, function(err, result){
+        var cursor = await db.collection('accounts').findOne({username: username, password: password}, async function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
             }
@@ -155,7 +155,18 @@ async function routes(fastify) {
                 delete result.verifCode
                 delete result.secretKey
                 delete result.twoFactor
-                res.send(result)
+                let token = crypto.randomBytes(48).toString('hex')
+                var update = await db.collection('accounts').updateOne({username: username, password: password}, {$set: {token: token}}, function(err, answer){
+                    if(err){
+                        res.code(500).send(new Error("Server error"))
+                    }
+                    else if(answer){
+                        result.token = token
+                        res.send(result)
+                    }
+                    else
+                        res.code(400).send()
+                })
             }
             else{   
                 res.code(400).send(new Error("Invalid creditentials"))             
