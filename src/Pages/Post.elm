@@ -191,7 +191,7 @@ update msg model =
             ({ model | edit = string }, Cmd.none)
 
         Edit id content ->
-            ({ model | editing = (Just id), edit = content }, Cmd.none)
+            ({ model | editing = (Just id), edit = content, deleting = Nothing }, Cmd.none)
 
         EditCancel ->
             ({ model | editing = Nothing, edit = "" }, Cmd.none)
@@ -204,7 +204,7 @@ update msg model =
                     ({ model | edit = "", editing = Nothing }, Cmd.none)
 
         DeleteComment id ->
-            ({ model | deleting = (Just id) }, Cmd.none)
+            ({ model | deleting = (Just id), editing = Nothing }, Cmd.none)
 
         DeleteCommentConfirm ->
             case model.deleting of
