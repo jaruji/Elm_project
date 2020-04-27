@@ -67,11 +67,6 @@ function daysInMonth(month,year) {
     return new Date(year, month, 0).getDate();
 };
 
-function storeFile(file, dir, filename){
-
-
-}
-
 async function routes(fastify) {
 
     fastify.post('/account/sign_up', async (req, res) => {    //registering new account
@@ -386,15 +381,15 @@ async function routes(fastify) {
     fastify.put('/upload/profile', async(req, res) => {
         //log this: user has changed their profile picture
         user = req.headers["user"];
-        filename = user + path.extname(req.headers["name"]);    //get name of received file
-        let link = "http://localhost:3000/img/profile/" + filename
-        dir = "./server/data/img/profile/"
         const db = client.db(database)
         await db.collection('accounts').findOne({username: user}, function(err, result){
             if(err){
                 res.code(500).send(new Error("Server error"))
             }
             else if(result){
+                let filename = result._id.toHexString() + path.extname(req.headers["name"]);    //get name of received file
+                let link = "http://localhost:3000/img/profile/" + filename
+                let dir = "./server/data/img/profile/"
                 if(result.profilePic != null){
                     let oldAvatar = result.profilePic.split('/').pop()
                     fs.unlinkSync("./server/data/img/profile/" + oldAvatar)
