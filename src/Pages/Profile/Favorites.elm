@@ -47,7 +47,9 @@ update msg model =
 
 view: Model -> Html Msg
 view model =
-    div[ class "container", style "text-align" "center" ][ 
+    div[ class "container"
+    , style "text-align" "center"
+    , style "min-height" "500px" ][ 
         h3[][ text "My Favorites" ] 
         , div[ class "help-block" ][
             text "Here is the list of posts you favorited"

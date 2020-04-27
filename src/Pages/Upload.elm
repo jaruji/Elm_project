@@ -8,6 +8,7 @@ import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import File exposing (File)
 import File.Select as Select
 import Task
@@ -162,7 +163,7 @@ view model =
               , hijackOn "dragenter" (Decode.succeed DragEnter)
               , hijackOn "dragover" (Decode.succeed DragEnter)
               , hijackOn "dragleave" (Decode.succeed DragLeave)
-              --, hijackOn "drop" dropDecoder
+              , hijackOn "drop" dropDecoder
             ][ 
               button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
               , div [ class "help-block" ] [ text "-OR-" ]
@@ -289,6 +290,10 @@ cancelButton msg offset =
 keyPress: (Int -> msg) -> Attribute msg
 keyPress tagger =
   on "keydown" (Decode.map tagger keyCode)
+
+dropDecoder : Decode.Decoder Msg
+dropDecoder =
+  Decode.at ["dataTransfer", "files"] (Decode.map GotFiles File.decoder)
 
 hijackOn: String -> Decode.Decoder msg -> Attribute msg
 hijackOn event decoder =

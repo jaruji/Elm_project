@@ -67,6 +67,11 @@ function daysInMonth(month,year) {
     return new Date(year, month, 0).getDate();
 };
 
+function storeFile(file, dir, filename){
+
+
+}
+
 async function routes(fastify) {
 
     fastify.post('/account/sign_up', async (req, res) => {    //registering new account
@@ -384,24 +389,38 @@ async function routes(fastify) {
         filename = user + path.extname(req.headers["name"]);    //get name of received file
         let link = "http://localhost:3000/img/profile/" + filename
         dir = "./server/data/img/profile/"
-        pipeline(                                 //store initial file to specified directory
-          req.body,
-          fs.createWriteStream(`${dir}/${filename}`),
-          (err) => {
+        const db = client.db(database)
+        await db.collection('accounts').findOne({username: user}, function(err, result){
             if(err){
-              console.log("Error during writing file, deleting...");
-              fs.unlinkSync(`${dir}/${filename}`);      //delete file if error occured
-              res.code(400).send(new Error("Error during writing file"))
-              return;
+                res.code(500).send(new Error("Server error"))
+            }
+            else if(result){
+                if(result.profilePic != null){
+                    let oldAvatar = result.profilePic.split('/').pop()
+                    fs.unlinkSync("./server/data/img/profile/" + oldAvatar)
+                }
+                pipeline(                                 //store initial file to specified directory
+                  req.body,
+                  fs.createWriteStream(`${dir}/${filename}`),
+                  (err) => {
+                    if(err){
+                      console.log("Error during writing file, deleting...");
+                      fs.unlinkSync(`${dir}/${filename}`);      //delete file if error occured
+                      res.code(400).send(new Error("Error during writing file"))
+                      return;
+                    }
+                    else{
+                        console.log(`File stored to ${dir}/${filename}`)
+                        var cursor = db.collection('accounts').updateOne({username: user}, {$set: {profilePic: link}})   
+                        res.code(200).send()
+                    }
+                  }
+                )
             }
             else{
-                const db = client.db(database)
-                console.log(`File stored to ${dir}/${filename}`)
-                var cursor = db.collection('accounts').updateOne({username: user}, {$set: {profilePic: link}})   
-                res.code(200).send()
+                res.code(400).send(new Error("No user with this username"))
             }
-          }
-        )
+        })
     })
 
     fastify.get('/accounts/search', async(req, res) => {
@@ -699,11 +718,14 @@ async function routes(fastify) {
                 if(results.length === 0)
                     res.send(results)
                 for(let i = 0; i < results.length; i++){
-                    var user = await db.collection('accounts').findOne({username: results[i].username}, function(err, result){
+                    var user = await db.collection('accounts').findOne({username: results[i].username}, async function(err, result){
                         if(err){
                             res.code(500).send()
                         }
                         else if(result){
+                            if(result.profilePic == null){
+                                result.profilePic = "http://localhost:3000/img/profile/default.jpg"
+                            }
                             results[i].avatar = result.profilePic
                             if(i === results.length - 1)
                                 res.send(results)

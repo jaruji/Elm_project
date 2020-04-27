@@ -24,6 +24,7 @@ import Pages.Profile.Security as SecurityTab
 import Pages.Profile.History as HistoryTab
 import Pages.Profile.Favorites as FavoritesTab
 import Title
+import Markdown
 
 postCount = 5
 
@@ -241,7 +242,10 @@ view model =
                                         div [][]
                             ]
                         ]
-                        , i [] [ text user.bio ]
+                        , div [ style "width" "50%" 
+                        , style "margin" "auto" ][
+                            i[ class "help-block" ][ text user.bio ] 
+                        ]
                     ]
                     , if user.token /= "Hidden" then
                         div[][

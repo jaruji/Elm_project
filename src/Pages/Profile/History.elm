@@ -84,7 +84,9 @@ update msg model =
 
 view: Model -> Html Msg
 view model =
-    div[ class "container", style "text-align" "center" ][ 
+    div[ class "container"
+    , style "text-align" "center"
+    , style "min-height" "500px" ][ 
         h3 [] [ text "Activity in the last month" ] 
         , div [ class "help-block" ][
             text "This graph represents your image upload activity in the last month"
@@ -104,7 +106,7 @@ view model =
                 div [ style "margin-left" "5%"][ 
                     LineChart.viewCustom 
                     { x = xConfig (List.length activity)
-                      , y = Axis.default 700 "Uploads" .y
+                      , y = Axis.default 400 "Uploads" .y
                       , container = Container.responsive "line-chart-1"
                       , interpolation = Interpolation.default
                       , intersection = Intersection.default
