@@ -246,7 +246,7 @@ view model =
                     , style "margin-bottom" "20px" ][]
                     , img [ src image.url
                     , style "max-width" "1400px"
-                    , style "max-height" "1500px" ] []
+                    ] []
                     --
                     --STATS HERE
                     --

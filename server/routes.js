@@ -138,7 +138,6 @@ async function routes(fastify) {
         }) 
     })
 
-
     fastify.get('/account/sign_in', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
@@ -338,27 +337,49 @@ async function routes(fastify) {
         })
     })
 
+    fastify.post('/upload/metadata', async(req, res) => {
+        let auth = req.headers.auth
+        let id = req.body.id
+        let title = req.body.title
+        let tags = req.body.tags
+        if(tags.length === 0)
+            tags = null
+        let description = req.body.description
+        const db = client.db(database)
+        var cursor = await db.collection('accounts').findOne({token: auth}, async function(err, result){
+            if(err){
+                res.code(500).send(new Error("Server error"))
+            }
+            else if(result){
+                await db.collection('images').updateOne({id: id}, {$set:{title: title, tags: tags, description: description, author: result.username}}, function(err, result){
+                    if(err){
+                        res.code(500).send(new Error("Server error"))
+                    }
+                    else if(result){
+                        res.code(200).send()
+                    }
+                    else{
+                        res.code(400).send(new Error("No image with this ID"))
+                    }
+                }) 
+            }
+            else{
+                res.code(401).send(new Error("Not authorized"))
+            }
+        })
+    })
+
     //upload files to the server by posting to this url
     fastify.put('/upload/image', async(req, res) => {
         //log this = user has uploaded new picture
         let dir = "./server/data/img"
         let auth = req.headers.auth
-        let title = req.headers.title
-        let tags = req.headers.tags
-        let description = req.headers.description
-        var username
         console.log("Uploading a file to the server")
         let ID = crypto.randomBytes(10).toString('hex')
         filename = ID + path.extname(req.headers.name);
         const db = client.db(database)
-        if(tags.length == 1 && a[0] == "")
-            tags = null
-        else
-            tags = tags.substring(1, tags.length-1).replace(/"/g,'').split(",")
-        if(description.length == 1 && description[0])
-            description = null
         var cursor = await db.collection('accounts').findOne({token: auth})
-        var obj = {id: ID, file: filename, title:title, description:description, author:cursor.username, tags:tags}
+        var obj = {id: ID, file: filename, author:cursor.username}
         var insert = await db.collection('images').insertOne(createImage(obj))
         pipeline(
           req.body,
@@ -674,9 +695,10 @@ async function routes(fastify) {
                                 res.code(500).send(new Error("File deletion failed"))
                             }
                             else{
-                                var del = await db.collection('images').deleteOne({id: id})
-                                del = await db.collection('comments').deleteMany({imageID: id})
-                                del = await db.collection('votes').deleteMany({id: id})
+                                await db.collection('images').deleteOne({id: id})
+                                await db.collection('comments').deleteMany({imageID: id})
+                                await db.collection('votes').deleteMany({id: id})
+                                await db.collection('favorites').deleteMany({id: id})
                                 res.code(200).send()
                             }
                         })
@@ -779,6 +801,8 @@ async function routes(fastify) {
             else if(results){
                 var arr = []
                 results.forEach(key =>{
+                    if(key.tags === null)
+                        return
                     key.tags.forEach(tag =>{
                         if(arr.includes(tag)){
                         }

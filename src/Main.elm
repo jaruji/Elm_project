@@ -4,7 +4,7 @@ import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Http
+import Http exposing (..)
 import Url
 import Url.Parser as Parser exposing (Parser, (</>), (<?>), custom, fragment, map, oneOf, s, top)
 import Url.Parser.Query as Query
@@ -215,7 +215,11 @@ update msg model =
           ({ model | state = Ready (Session.set user) }, Nav.pushUrl model.key (Url.toString model.url))
           --page refresh without calling init!
         Err log ->
-          ({ model | state = Failure}, Cmd.none)
+          case log of
+            BadStatus code ->
+              ({ model | state = Ready Session.init }, User.logout)
+            _ ->
+              ({ model | state = Failure }, Cmd.none)
 
 stepTags: Model -> (Tags.Model, Cmd Tags.Msg) -> (Model, Cmd Msg)
 stepTags model (tags, cmd) =
@@ -559,7 +563,7 @@ routeUrl url model =
             ( {model | page = Loading }, loadUser token )
 
           Failure ->
-            ( {model | page = NotFound "We are currently having server issues, please try again later"}, User.logout)
+            ( {model | page = NotFound "We are currently having server issues, please try again later"}, Cmd.none)
           
           _ ->
             case Parser.parse parser url of

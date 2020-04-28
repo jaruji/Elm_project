@@ -17,6 +17,7 @@ import User
 import Server
 import Loading as Loader
 import Tag
+import Task exposing (..)
 
 type alias Model =
   { hover: Bool
@@ -32,12 +33,13 @@ type alias Model =
   , status: Status
   , warning: String
   , fileStatus: FileStatus
+  , id: String
   }
 
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model False "" key user "" [] 0 "" "" "" Loading "" NotLoaded, Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
+  (Model False "" key user "" [] 0 "" "" "" Loading "" NotLoaded "", Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
 
 type Msg
   = Pick
@@ -48,7 +50,8 @@ type Msg
   | DragLeave
   | GotFiles File
   | GetPreview String
-  | Response (Result Http.Error String)
+  | UploadResponse (Result Http.Error String)
+  | Response (Result Http.Error())
   | Upload
   | RemoveImg
   | KeyHandler Int
@@ -86,7 +89,7 @@ update msg model =
     GotFiles file ->
       ( 
         { model | hover = False, fileSize = File.size file, mime = File.mime file, fileStatus = Loaded file }
-        , Cmd.batch [ Task.perform GetPreview <| File.toUrl file ] --, put file ]
+        , Task.perform GetPreview <| File.toUrl file
       )
 
     GetPreview url ->
@@ -106,10 +109,21 @@ update msg model =
           _ ->
             ({ model | warning = "Choose an image to upload" }, Cmd.none)
 
+    UploadResponse response ->
+      case response of
+        Ok id ->
+          case model.user of
+            Just user ->
+              ({ model | id = id }, postMetatada model user.token id)
+            Nothing ->
+              (model, Cmd.none)
+        Err log ->
+          ({ model | warning = "Connection error, please try again later" }, Cmd.none)
+
     Response response ->
       case response of
         Ok string ->
-          (model, Nav.pushUrl model.key ("/post/" ++ string))
+          (model, Nav.pushUrl model.key ("/post/" ++ model.id))
         Err log ->
           ({ model | warning = "Connection error, please try again later" }, Cmd.none)
 
@@ -160,10 +174,6 @@ view model =
               style "border" (if model.hover then "1px solid lightgreen" else "1px solid #ccc")
               , class "panel-body"
               , style "padding" "60px"
-              , hijackOn "dragenter" (Decode.succeed DragEnter)
-              , hijackOn "dragover" (Decode.succeed DragEnter)
-              , hijackOn "dragleave" (Decode.succeed DragLeave)
-              , hijackOn "drop" dropDecoder
             ][ 
               button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
               , div [ class "help-block" ] [ text "-OR-" ]
@@ -291,33 +301,42 @@ keyPress: (Int -> msg) -> Attribute msg
 keyPress tagger =
   on "keydown" (Decode.map tagger keyCode)
 
-dropDecoder : Decode.Decoder Msg
-dropDecoder =
-  Decode.at ["dataTransfer", "files"] (Decode.map GotFiles File.decoder)
-
-hijackOn: String -> Decode.Decoder msg -> Attribute msg
-hijackOn event decoder =
-  preventDefaultOn event (Decode.map hijack decoder)
-
-
-hijack: msg -> (msg, Bool)
-hijack msg =
-  (msg, True)
-
 put: Model -> File -> String -> Cmd Msg
 put model file token = 
   Http.request
-    { method = "PUT"
-    , headers = [ 
-      Http.header "name" (File.name file)
-      , Http.header "auth" token 
-      , Http.header "description" model.description
-      , Http.header "tags" (Debug.toString model.tags)
-      , Http.header "title" model.title
+    { 
+      method = "PUT"
+      , headers = [ 
+        Http.header "name" (File.name file)
+        , Http.header "auth" token
       ]
-    , url = Server.url ++ "/upload/image"
-    , body = Http.fileBody file
-    , expect = Http.expectJson Response (Decode.field "response" Decode.string)
+      , url = Server.url ++ "/upload/image"
+      , body = Http.fileBody file
+      , expect = Http.expectJson UploadResponse (Decode.field "response" Decode.string)
+      , timeout = Nothing
+      , tracker = Nothing
+    }
+
+encodeMetadata: Model -> String -> Encode.Value
+encodeMetadata model id =
+  Encode.object[
+    ("title", Encode.string model.title)
+    , ("tags", Encode.list Encode.string model.tags)
+    , ("description", Encode.string model.description)
+    , ("id", Encode.string id)
+  ]
+
+postMetatada: Model -> String -> String -> Cmd Msg
+postMetatada model token id =
+  Http.request
+  { 
+    method = "POST"
+    , headers = [
+      Http.header "auth" token
+    ]
+    , url = Server.url ++ "/upload/metadata"
+    , body = Http.jsonBody <| (encodeMetadata model id)
+    , expect = Http.expectWhatever Response
     , timeout = Nothing
     , tracker = Nothing
-    }
+  }

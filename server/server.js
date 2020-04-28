@@ -10,7 +10,7 @@ fastify.register(require('fastify-multipart'))
 fastify.register(require('fastify-cors'), {
    origin: "*",
    allowedHeaders: ['Origin', 'X-Requested-With', 'Accept', 'Content-Type', 'Authorization', 'Content-Disposition'
-   , 'name', 'user', 'auth', 'title', 'description', 'tags' ],
+   , 'name', 'user', 'auth' ],
    methods: ['GET', 'PUT', 'PATCH', 'POST', 'DELETE']
 })
 
