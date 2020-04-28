@@ -20,6 +20,7 @@ import Image.Stats as Stats
 import Tag
 import TimeFormat
 import Markdown
+import Time
 
 type alias Model =
   { 
@@ -87,6 +88,7 @@ type Msg
   | DeleteCommentCancel
   | DeleteCommentConfirm
   | Empty
+  | Reload
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
@@ -215,6 +217,9 @@ update msg model =
 
         DeleteCommentCancel ->
             ({ model | deleting = Nothing }, Cmd.none)
+
+        Reload ->
+            (model, Cmd.batch [ loadComments model.id, loadStats model.id ])
 
 view: Model -> Html Msg
 view model =
@@ -705,3 +710,12 @@ getUserInfo id mbyUser =
         , timeout = Nothing
         , tracker = Nothing
       }
+
+
+subscriptions: Model -> Sub Msg
+subscriptions model =
+    Time.every 30000 (\_ ->
+        ( 
+            Reload
+        )
+    )

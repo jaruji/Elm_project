@@ -10,6 +10,7 @@ import Server
 import Http
 import Image
 import Tag
+import Time
 import TimeFormat
 import Json.Decode as Decode
 import Array exposing (..)
@@ -31,6 +32,7 @@ type Msg
   = UpdateCarousel Carousel.Msg
   | Response (Result Http.Error (List Image.Preview))
   | TagsResponse (Result Http.Error (List String))
+  | Reload
 
 type Status
   = Loading
@@ -68,6 +70,9 @@ update msg model =
           ({ model | tagStatus = SuccessTags tags }, Cmd.none)
         Err log ->
           ({ model | tagStatus = FailureTags }, Cmd.none)
+
+    Reload ->
+      (model, Cmd.batch[ getLatest, getTrending ])
 
 view: Model -> Html Msg
 view model =
@@ -200,4 +205,11 @@ getTrending =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
+  Sub.batch[ 
+    Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
+    , Time.every 30000 (\_ ->
+      (
+        Reload
+      )
+    )
+  ]

@@ -66,16 +66,29 @@
         var key = "user"
         var flags = localStorage.getItem(key)
         var app = Elm.Main.init({flags : flags});
-        app.ports.storeToken.subscribe(function(value) {
-          if(value == null)
+
+        app.ports.storeToken.subscribe(function(value){
+          if(value == null){
             localStorage.removeItem(key)
+            sessionStorage.removeItem("queryState")
+          }
           else
             localStorage.setItem(key, value)
         })
-        app.ports.title.subscribe(value => {
-          console.log("Title = " + value )
-          document.title = value
+
+        //trying saving query state using session storage...
+        app.ports.saveState.subscribe(value => {
+          if(value.query.length === 0){
+            sessionStorage.removeItem("queryState")
+          }
+          else
+            sessionStorage.setItem("queryState", JSON.stringify(value))
         })
+
+        app.ports.request.subscribe(() => {
+          app.ports.restoreState.send(JSON.parse(sessionStorage.getItem("queryState")))   
+        })
+
       </script>
   </body>
 </html>

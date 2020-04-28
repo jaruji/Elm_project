@@ -158,10 +158,17 @@ viewValidation model =
   else
     div [ style "color" "red" ] [ text "Passwords do not match!" ]
 
+encodeLogin: Model -> Encode.Value
+encodeLogin model =
+  Encode.object[
+    ("username", Encode.string model.name)
+    , ("password", Encode.string (Crypto.sha256 model.password))
+  ]
+
 login : Model -> Cmd Msg
 login model =
-  Http.get
-    { url = Server.url ++ "/account/sign_in" ++ "?username=" 
-            ++ model.name ++ "&password=" ++ (Crypto.sha256 model.password)
+  Http.post
+    { url = Server.url ++ "/account/sign_in"
+    , body = Http.jsonBody <| encodeLogin model
     , expect = Http.expectJson Response User.decodeUser
     }

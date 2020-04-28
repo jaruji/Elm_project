@@ -138,12 +138,12 @@ async function routes(fastify) {
         }) 
     })
 
-    fastify.get('/account/sign_in', async(req, res) => {
+    fastify.post('/account/sign_in', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db(database)
-        let username = req.query.username
-        let password = req.query.password
+        let username = req.body.username
+        let password = req.body.password
         var cursor = await db.collection('accounts').findOne({username: username, password: password}, async function(err, result){
             if(err){
                 res.code(500).send(new Error("Something went wrong on the server's side"))
@@ -351,9 +351,15 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Server error"))
             }
             else if(result){
-                await db.collection('images').updateOne({id: id}, {$set:{title: title, tags: tags, description: description, author: result.username}}, function(err, result){
+                await db.collection('images').updateOne({id: id}, {$set:{title: title, tags: tags, description: description, author: result.username}}, async function(err, result){
                     if(err){
                         res.code(500).send(new Error("Server error"))
+                        await db.collection('images').findOne({id: id}, function(err, result){
+                            if(result){
+                                //clean up
+                                fs.unlinkSync("./server/data/img/" + result.file)
+                            }
+                        })
                     }
                     else if(result){
                         res.code(200).send()

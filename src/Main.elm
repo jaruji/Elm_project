@@ -26,7 +26,6 @@ import Components.Carousel as Carousel
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Session
 import User
-import Title
 import Server
 import ElmLogo as Logo
 import Svg
@@ -216,8 +215,8 @@ update msg model =
           --page refresh without calling init!
         Err log ->
           case log of
-            BadStatus code ->
-              ({ model | state = Ready Session.init }, User.logout)
+            BadStatus code -> --if invalid token, user gets logged out of the app
+              ({ model | state = Ready Session.init }, Cmd.batch[ User.logout, Nav.reload ])
             _ ->
               ({ model | state = Failure }, Cmd.none)
 
@@ -274,6 +273,10 @@ subscriptions model =
   case model.page of
     Home home ->
       Home.subscriptions home |> Sub.map HomeMsg
+    Post post ->
+      Post.subscriptions post |> Sub.map PostMsg
+    Tags tags ->
+      Tags.subscriptions tags |> Sub.map TagsMsg
     _ ->
       Sub.none
  
@@ -560,10 +563,10 @@ routeUrl url model =
   in 
     case model.state of
           NotReady token ->
-            ( {model | page = Loading }, loadUser token )
+            ( { model | page = Loading }, loadUser token )
 
           Failure ->
-            ( {model | page = NotFound "We are currently having server issues, please try again later"}, Cmd.none)
+            ( { model | page = NotFound "We are currently having server issues, please try again later" }, Cmd.none)
           
           _ ->
             case Parser.parse parser url of
@@ -571,7 +574,7 @@ routeUrl url model =
                 result
 
               Nothing ->
-                ({model | page = NotFound "Oops, this page doesn't exist!"}, Cmd.none)
+                ({ model | page = NotFound "Oops, this page doesn't exist!" }, Cmd.none)
 
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =

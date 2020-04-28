@@ -13,6 +13,8 @@ import Json.Decode as Decode exposing (..)
 import Json.Encode as Encode exposing (..)
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Tag
+import Query
+import Time
 
 pageSize = 9
 
@@ -28,6 +30,8 @@ type Msg
   | Query String
   | Response (Result Http.Error(Image.PreviewContainer))
   | Jump Int
+  | Restore (Maybe Encode.Value)
+  | Request
 
 type Status
   = Loading
@@ -38,9 +42,9 @@ init: Nav.Key -> Maybe String -> (Model, Cmd Msg)
 init key query =
     case query of
         Just q ->
-            (Model q Loading 1, Cmd.batch [Task.perform (\_ -> Empty) (Dom.setViewport 0 0), getImages q 1])
+            (Model q Loading 1, Cmd.batch[ Task.perform (\_ -> Empty) (Dom.setViewport 0 0), getImages q 1, Query.saveState (Query.encode q 1) ])
         Nothing ->
-            (Model "" Loading 1, Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
+            (Model "" Loading 1, Cmd.batch[ Task.perform (\_ -> Request) (Dom.setViewport 0 0) ])
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -48,16 +52,23 @@ update msg model =
         Empty ->
             (model, Cmd.none)
 
+        Request ->
+            (model, Query.request ())
+
         Jump int ->
             if model.query == "" then
                 ({ model | page = int, status = Loading }, Cmd.none)
             else
-                ({ model | page = int }, Cmd.batch [getImages model.query int, Task.perform (\_ -> Empty) (Dom.setViewport 0 0)])
+                ({ model | page = int }
+                , Cmd.batch [ getImages model.query int
+                , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) 
+                , Query.saveState (Query.encode model.query int) 
+                ])
         Query string ->
             if string == "" then
-                ({ model | query = string, status = Loading, page = 1 }, Cmd.none)
+                ({ model | query = string, status = Loading, page = 1 }, Query.saveState (Query.encode string model.page))
             else
-                ({ model | query = string, page = 1 }, getImages string model.page)
+                ({ model | query = string, page = 1 }, Cmd.batch[ getImages string model.page, Query.saveState (Query.encode string model.page) ])
 
         Response response ->
             case response of
@@ -65,6 +76,35 @@ update msg model =
                     ({ model | status = Success container }, Cmd.none)
                 Err log ->
                     ({ model | status = Failure "Connection error" }, Cmd.none)
+        
+        Restore value ->
+            case value of
+                Nothing ->
+                    (model, Cmd.none)
+                Just json ->
+                    let
+                        query = decodeQuery json
+                        page = decodePage json
+                    in
+                    ({ model | query = query
+                    , page = page
+                    }, Cmd.batch[ getImages query page, Query.saveState (Query.encode query page) ])
+
+decodeQuery: Encode.Value -> String
+decodeQuery json =
+    case decodeValue (at ["query"] Decode.string) json of 
+        Err _ ->
+            "error"
+        Ok a ->
+            a
+
+decodePage: Encode.Value -> Int
+decodePage json = 
+    case decodeValue (at ["page"] Decode.int) json of 
+        Err _ ->
+            1
+        Ok a ->
+            a
 
 view: Model -> Html Msg
 view model =
@@ -93,32 +133,32 @@ view model =
                 let
                     images = container.images
                 in
-                    case List.length images of
-                        0 ->
-                            div [ class "alert alert-warning"
+                case List.length images of
+                    0 ->
+                        div [ class "alert alert-warning"
+                        , style "margin" "auto"
+                        , style "width" "60%" ][
+                            text ("No results for tag ")
+                            , Tag.view model.query
+                        ]
+                    _ ->
+                        div[][
+                            div [ class "alert alert-success"
                             , style "margin" "auto"
-                            , style "width" "60%" ][
-                                text ("No results for tag ")
-                                , Tag.view model.query
+                            , style "width" "60%"
+                            , style "margin-bottom" "10px" ][
+                                text ("Query returned " ++ String.fromInt(container.total) ++ " results") 
                             ]
-                        _ ->
-                            div[][
-                                div [ class "alert alert-success"
-                                , style "margin" "auto"
-                                , style "width" "60%"
-                                , style "margin-bottom" "10px" ][
-                                    text ("Query returned " ++ String.fromInt(container.total) ++ " results") 
-                                ]
-                                , div[ class "panel panel-default"
-                                , style "margin" "auto"
-                                , style "border" "none" ]
-                                    (List.map Image.showPreview images)
-                                , div [ style "margin-top" "20px" ] [
-                                    div [ style "width" "30%"
-                                    , style "margin" "auto" ] ((List.range 1 ( ceiling ( toFloat container.total / toFloat pageSize ))) |> List.map (viewButton model) )
-                                    , div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
-                                ]
+                            , div[ class "panel panel-default"
+                            , style "margin" "auto"
+                            , style "border" "none" ]
+                                (List.map Image.showPreview images)
+                            , div [ style "margin-top" "20px" ] [
+                                div [ style "width" "30%"
+                                , style "margin" "auto" ] ((List.range 1 ( ceiling ( toFloat container.total / toFloat pageSize ))) |> List.map (viewButton model) )
+                                , div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
                             ]
+                        ]
             Failure error ->
                 div [ class "alert alert-warning"
                 , style "margin" "auto"
@@ -146,3 +186,7 @@ getImages query page =
             ++ "&page=" ++ (String.fromInt page) 
     , expect = Http.expectJson Response Image.decodePreviewContainer
     }
+
+subscriptions: Model -> Sub Msg
+subscriptions model =
+    Query.restoreState Restore
