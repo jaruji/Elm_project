@@ -12,7 +12,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Decode as Decode exposing (list, field, string)
 import Loading as Loader
 import Crypto.Hash as Crypto
-import Session
+import Session exposing (UpdateSession(..))
 import Server
 import User exposing (..)
 
@@ -24,9 +24,9 @@ type alias Model =
   , key : Nav.Key
   }
 
-init : Nav.Key -> (Model, Cmd Msg, Session.UpdateSession)
+init : Nav.Key -> (Model, Cmd Msg, UpdateSession)
 init key =
-  (Model "" "" "" Loading key, Task.perform (\_ -> Empty) (Dom.setViewport 0 0), Session.NoUpdate)
+  (Model "" "" "" Loading key, Task.perform (\_ -> Empty) (Dom.setViewport 0 0), NoUpdate)
 
 
 -- UPDATE
@@ -44,32 +44,32 @@ type Status --status when logging in
   | Failure Http.Error
   | Success String
 
-update : Msg -> Model -> ( Model, Cmd Msg, Session.UpdateSession )
+update : Msg -> Model -> (Model, Cmd Msg, UpdateSession)
 update msg model =
   case msg of
     Empty ->
-      (model, Cmd.none, Session.NoUpdate)
+      (model, Cmd.none, NoUpdate)
 
     Name name ->
-      ( { model | name = name }, Cmd.none, Session.NoUpdate )
+      ( { model | name = name }, Cmd.none, NoUpdate )
 
     Password password ->
-      ( { model | password = password }, Cmd.none, Session.NoUpdate )
+      ( { model | password = password }, Cmd.none, NoUpdate )
 
     Submit ->
       if model.name == "" then
-        ({ model | warning = "Enter your username" }, Cmd.none, Session.NoUpdate )
+        ({ model | warning = "Enter your username" }, Cmd.none, NoUpdate )
       else if model.password == "" then
-        ({ model | warning = "Enter your password" }, Cmd.none, Session.NoUpdate )
+        ({ model | warning = "Enter your password" }, Cmd.none, NoUpdate )
       else
-        ({model | status = Loading,  warning = "Loading" }, login model, Session.NoUpdate )
+        ({model | status = Loading,  warning = "Loading" }, login model, NoUpdate )
 
     Response response ->
       case response of
         Ok user ->
-          ( { model | status = Success "" }, Cmd.batch [ Nav.pushUrl model.key ("/"), User.encodeForStorage user ], Session.Update user )
+          ( { model | status = Success "" }, Cmd.batch [ Nav.pushUrl model.key ("/"), User.encodeForStorage user ], Update user )
         Err log ->
-          ( { model | status = Failure log }, Cmd.none, Session.NoUpdate )
+          ( { model | status = Failure log }, Cmd.none, NoUpdate )
 
 -- VIEW
 

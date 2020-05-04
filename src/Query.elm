@@ -1,13 +1,6 @@
 port module Query exposing (..)
 import Json.Encode as Encode
-import Json.Decode as Decode
-import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
-
-type alias Model = 
-    {
-        query: String
-        , page: Int
-    }
+import Json.Decode as Decode exposing(..)
 
 port saveState: Encode.Value -> Cmd msg
 
@@ -22,8 +15,18 @@ encode query page =
         , ("page", Encode.int page)
     ]
 
-decode: Decode.Decoder Model
-decode =
-    Decode.succeed Model
-    |> required "query" Decode.string
-    |> required "page" Decode.int
+decodeQuery: Encode.Value -> String
+decodeQuery json =
+    case decodeValue (at ["query"] Decode.string) json of 
+        Err _ ->
+            ""
+        Ok a ->
+            a
+
+decodePage: Encode.Value -> Int
+decodePage json = 
+    case decodeValue (at ["page"] Decode.int) json of 
+        Err _ ->
+            1
+        Ok a ->
+            a

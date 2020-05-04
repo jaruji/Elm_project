@@ -30,12 +30,10 @@ import Server
 import ElmLogo as Logo
 import Svg
 import Svg.Attributes as SvgAttrs
+--elm-live src/Main.elm -u -- --output=elm.js (will start server on localhost with pushstate enabled)
 
---usage - type the following command into terminal (need to install elm-live)
---elm-live src/Main.elm --u -- --output=elm.js (will start server on localhost with pushstate enabled)
 
--- MAIN
-
+--Program je implementovany ako Browser.application, kedze vyrazne ulahcuje implementaciu SPA
 main : Program (Maybe String) Model Msg
 main =
   Browser.application
@@ -101,15 +99,15 @@ init flag url key =
       routeUrl url  --if no entry in localStorage, user is not signed in
         { key = key
         , url = url
-        , page = NotFound ""
+        , page = Loading
         , search = Search.init key
         , state = Ready Session.init
         }
     Just token -> -- if there is a token in localStorage, use it to load user info
-      routeUrl url  --if no entry in localStorage, user is not signed in
+      routeUrl url 
         { key = key
         , url = url
-        , page = NotFound ""
+        , page = Loading
         , search = Search.init key
         , state = NotReady token
         }
@@ -501,35 +499,26 @@ viewFooter =
   ]
 
 --Router
-
+--entire routing logic is defined in this function (url and what Model+Cmd it should produce)
 routeUrl : Url.Url -> Model -> (Model, Cmd Msg)
 routeUrl url model =
   let
     parser =
-      oneOf   --rerouting based on url change!
-        [ route (s "gallery" <?> Query.int "page" <?> Query.string "sort")
-            ( 
-              \page sort -> stepGallery model (Gallery.init (getUser model.state) model.key page sort)
-            )
-          , route (s "sign_up")
-            ( 
-              stepSignUp model (SignUp.init model.key)
-            )
-          , route (s "sign_in")
-            (
-              stepSignIn model ( SignIn.init model.key  )
-            )
-          , route (s "upload")
-            ( 
-              stepUpload model (Upload.init (getUser model.state) model.key )
-            )
-          , route (top)
-            ( 
-              stepHome model (Home.init (getUser model.state) model.key)
-            )
-          , route (s "profile" </> Parser.string)
-            ( 
-              case getUser model.state of
+      Parser.oneOf   --rerouting based on url change!
+        [ (s "gallery" <?> Query.int "page" <?> Query.string "sort")
+            |> Parser.map 
+              (\page sort -> stepGallery model (Gallery.init (getUser model.state) model.key page sort))
+          , (s "sign_up") 
+            |> Parser.map (stepSignUp model (SignUp.init model.key))
+          , (s "sign_in")
+            |> Parser.map (stepSignIn model (SignIn.init model.key))
+          , (s "upload")
+            |> Parser.map (stepUpload model (Upload.init (getUser model.state) model.key))
+          , (top)
+            |> Parser.map (stepHome model (Home.init (getUser model.state) model.key))
+          , (s "profile" </> Parser.string)
+            |> Parser.map 
+              ( case getUser model.state of
                 Just userAcc ->
                   (\user ->
                     stepProfile model (Profile.init model.key userAcc user)
@@ -538,47 +527,33 @@ routeUrl url model =
                   (\user ->
                     ({model | page = NotFound "You must be logged in to do this"}, Cmd.none)
                   )
-            )
-          , route (s "users")
-          (
-            stepUsers model (Users.init model.key)
-          )
-          , route (s "post" </> Parser.string)
-          (
-            case model.state of
-              Ready session ->
-                (\id -> stepPost model (Post.init model.key session.user id))
-              _ ->
-                (\id -> (model, Cmd.none))
-          )
-          , route (s "search" <?> Query.string "q")
-          (
-            \q -> stepResults model (Results.init q)
-          )
-          , route (s "tags" <?> Query.string "q")
-          (
-            \q -> stepTags model (Tags.init model.key q)
-          )
+              )
+          , (s "users")
+            |> Parser.map (stepUsers model (Users.init model.key))
+          , (s "post" </> Parser.string)
+            |> Parser.map
+              (
+                case model.state of
+                  Ready session ->
+                    (\id -> stepPost model (Post.init model.key session.user id))
+                  _ ->
+                    (\id -> (model, Cmd.none))
+              )
+          , (s "search" <?> Query.string "q")
+            |> Parser.map (\q -> stepResults model (Results.init q))
+          , (s "tags" <?> Query.string "q")
+            |> Parser.map (\q -> stepTags model (Tags.init model.key q))
         ]
   in 
-    case model.state of
-          NotReady token ->
-            ( { model | page = Loading }, loadUser token )
+  case model.state of
+        NotReady token ->
+          ({ model | page = Loading }, loadUser token)
 
-          Failure ->
-            ( { model | page = NotFound "We are currently having server issues, please try again later" }, Cmd.none)
-          
-          _ ->
-            case Parser.parse parser url of
-              Just result ->
-                result
-
-              Nothing ->
-                ({ model | page = NotFound "Oops, this page doesn't exist!" }, Cmd.none)
-
-route : Parser a b -> a -> Parser (b -> c) c
-route parser handler =
-  Parser.map handler parser
+        Failure ->
+          ({ model | page = NotFound "We are currently having server issues, please try again later" }, Cmd.none)
+        
+        _ ->
+          Maybe.withDefault ({ model | page = NotFound "Oops, this page doesn't exist!" }, Cmd.none) (Parser.parse parser url) 
 
 --getter for user from current state
 

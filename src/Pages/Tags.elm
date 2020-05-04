@@ -83,28 +83,12 @@ update msg model =
                     (model, Cmd.none)
                 Just json ->
                     let
-                        query = decodeQuery json
-                        page = decodePage json
+                        query = Query.decodeQuery json
+                        page = Query.decodePage json
                     in
                     ({ model | query = query
                     , page = page
                     }, Cmd.batch[ getImages query page, Query.saveState (Query.encode query page) ])
-
-decodeQuery: Encode.Value -> String
-decodeQuery json =
-    case decodeValue (at ["query"] Decode.string) json of 
-        Err _ ->
-            "error"
-        Ok a ->
-            a
-
-decodePage: Encode.Value -> Int
-decodePage json = 
-    case decodeValue (at ["page"] Decode.int) json of 
-        Err _ ->
-            1
-        Ok a ->
-            a
 
 view: Model -> Html Msg
 view model =
