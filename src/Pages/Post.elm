@@ -35,6 +35,7 @@ type alias Model =
     , editing: Maybe String
     , edit: String
     , deleting: Maybe String
+    , title: String
   }
 
 type alias Info =
@@ -92,7 +93,7 @@ type Msg
 
 init: Nav.Key -> Maybe User.Model -> String -> (Model, Cmd Msg)
 init key user fragment =
-    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo Nothing "" Nothing
+    (Model key user Loading LoadingComments "" fragment LoadingStats LoadingInfo Nothing "" Nothing "Loading"
     , Cmd.batch [
         get fragment
         , getUserInfo fragment user
@@ -108,9 +109,9 @@ update msg model =
         Response response ->
             case response of
                 Ok image ->
-                    ({ model | status = Success image, id = image.id }, loadStats model.id)
+                    ({ model | status = Success image, id = image.id, title = image.title }, loadStats model.id)
                 Err _ ->
-                    ({ model | status = Failure }, Cmd.none)
+                    ({ model | status = Failure, title = "Failed to load" }, Cmd.none)
 
         LoadComments response ->
             case response of

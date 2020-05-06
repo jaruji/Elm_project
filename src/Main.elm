@@ -32,8 +32,6 @@ import Svg
 import Svg.Attributes as SvgAttrs
 --elm-live src/Main.elm -u -- --output=elm.js (will start server on localhost with pushstate enabled)
 
-
---Program je implementovany ako Browser.application, kedze vyrazne ulahcuje implementaciu SPA
 main : Program (Maybe String) Model Msg
 main =
   Browser.application
@@ -92,7 +90,7 @@ type Msg
   | LogOut
   | Response (Result Http.Error User.Model)
 
-init : Maybe String -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init : Maybe String -> Url.Url -> Nav.Key -> (Model, Cmd Msg)
 init flag url key =
   case flag of
     Nothing ->
@@ -112,7 +110,7 @@ init flag url key =
         , state = NotReady token
         }
     
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     UrlRequest urlRequest ->
@@ -135,20 +133,17 @@ update msg model =
 
     SignUpMsg mesg ->
       case model.page of
-        SignUp signup -> stepSignUp model (SignUp.update mesg signup)
-          --this was not working together with cmd! the other approach works though
-          --of course it wasn't, you return Cmd.none... It would work if you would map Cmd
-          --({model | page = SignUp (SignUp.update mesg signup)}, Cmd.none)
-          --       -> (model, Cmd.none)
-        _ -> (model, Cmd.none)
+        SignUp signup -> 
+          stepSignUp model (SignUp.update mesg signup)
+        _ ->
+          (model, Cmd.none)
 
     SignInMsg mesg ->
       case model.page of
         SignIn signin -> 
           stepSignIn model (SignIn.update mesg signin)
-          --stepSignIn model (SignIn.update mesg signin)
-          --({model | page = SignIn (SignIn.update mesg signin)}, Cmd.none)
-        _ -> (model, Cmd.none)
+        _ -> 
+          (model, Cmd.none)
 
     GalleryMsg mesg ->
       case model.page of
@@ -350,7 +345,7 @@ view model =
           ]
         }
       Profile profile ->
-        { title = "Profile"
+        { title = profile.user.username
           , body = [
             viewHeader model
             , div [style "text-align" "center", style "padding-top" "50px" ][
@@ -370,7 +365,7 @@ view model =
           ]
         }   
       Post post -> 
-        { title = "Post"
+        { title = post.title
           , body = [
             viewHeader model
             , div[class "body"][
