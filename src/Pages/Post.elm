@@ -251,7 +251,7 @@ view model =
                     , style "margin" "auto"
                     , style "margin-bottom" "20px" ][]
                     , img [ src image.url
-                    , style "max-width" "1400px"
+                    , style "max-width" "90%"
                     ] []
                     --
                     --STATS HERE

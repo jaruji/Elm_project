@@ -228,17 +228,17 @@ view model =
                                     Just url ->
                                         Social.viewFacebook url
                                     Nothing ->
-                                        div [][]
+                                        text ""
                                 , case user.twitter of
                                     Just url ->
                                         Social.viewTwitter url
                                     Nothing ->
-                                        div[][]
+                                        text ""
                                 , case user.github of
                                     Just url ->
                                         Social.viewGithub url
                                     Nothing ->
-                                        div [][]
+                                        text ""
                             ]
                         ]
                         , div [ style "width" "50%" 

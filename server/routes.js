@@ -294,6 +294,12 @@ async function routes(fastify) {
         let twitter = req.body.twitter
         let github = req.body.github
         const db = client.db(database)
+        if(facebook === "")
+            facebook = null
+        if(twitter === "")
+            twitter = null
+        if(github === "")
+            github = null
         let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, facebook:facebook, twitter:twitter, github:github, updatedAt: new Date()}})
         res.code(200).send()
         //TODO Update all changes

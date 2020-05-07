@@ -6,6 +6,7 @@ import Html.Events exposing (..)
 import Browser.Navigation as Nav
 import User
 import Server
+import Social
 import Http
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Json.Decode as Decode exposing (Decoder, field, string, int)
@@ -20,12 +21,12 @@ type alias Model =
     , facebook: String
     , twitter: String
     , github: String
-    , warning: String
+    , warning: List String
   }
 
 init: User.Model -> (Model, Cmd Msg)
 init user =
-    (Model user user.bio "" "" "" "", Cmd.none)
+    (Model user user.bio (Social.getLink user.facebook) (Social.getLink user.twitter) (Social.getLink user.github) [], Cmd.none)
 
 type Msg
   = Empty
@@ -71,7 +72,12 @@ update msg model =
             ({model | github = string}, Cmd.none)
             
         UpdateSettings ->
-            (model, patch model model.user.token)
+            if Social.validate model.facebook "facebook" 
+            && Social.validate model.twitter "twitter"
+            && Social.validate model.github "github" then
+                ({ model | warning = [] }, patch model model.user.token)
+            else
+                ({ model | warning = "Invalid social network link" :: [] }, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -106,7 +112,7 @@ view model =
                 ]
             ]
         ]
-        ,div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
+        , div [ class "form-group row", style "width" "30%", style "margin" "auto", style "padding-bottom" "15px" ] [ 
             div [ class "col-md-offset-2 col-md-8" ] [
                 div[ class "form-group has-feedback" ][
                     label [ for "tw" ] [ text "Link your Twitter:" ]
@@ -133,7 +139,16 @@ view model =
         , hr [] []
         , h3 [] [ text "Update" ]
         , div [ class "help-block" ] [ text "Save all changes to your basic information" ]
-        , button [ class "btn btn-primary", style "margin-bottom" "50px", onClick UpdateSettings ] [ text "Update Settings" ]
+        , button [ class "btn btn-primary", style "margin-bottom" "10px", onClick UpdateSettings ] [ text "Update Settings" ]
+        , if List.length model.warning > 0 then
+            div [ class "alert alert-warning"
+            , style "width" "30%"
+            , style "margin" "auto"
+            , style "margin-bottom" "40px" ][
+                div[](List.map text model.warning)
+           ]
+        else
+            text ""
     ]
 
 settingsEncoder: Model -> Encode.Value

@@ -24,13 +24,6 @@ viewFacebook url =
         ] [ Icons.facebook |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]
 
-validate: String -> String -> Bool
-validate url social =
-    if String.startsWith "www." url && String.contains social url && String.endsWith ".com" url then
-        True
-    else
-        False
-
 viewTwitter: String -> Html msg
 viewTwitter url =
     a [ href url ] [
@@ -64,3 +57,19 @@ viewGithub url =
                  , style "outline" "none"
         ] [ Icons.github |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]
+
+validate: String -> String -> Bool
+validate url social =
+    if ( String.startsWith "http" url && String.contains social url && String.contains ".com" url) 
+    || url == "" then
+        True
+    else
+        False
+
+getLink: Maybe String -> String
+getLink link =
+    case link of
+        Nothing ->
+            ""
+        Just url ->
+            url
