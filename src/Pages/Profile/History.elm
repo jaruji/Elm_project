@@ -34,6 +34,10 @@ import Json.Encode as Encode exposing (..)
 import Time
 import TimeFormat
 
+{--
+    Tab of profile that shows up only if the user is logged in and is viewing his own profile.
+    Displays user upload activity by using a line chart.
+--}
 
 type alias Model =
   {

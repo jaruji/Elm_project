@@ -5,6 +5,7 @@ import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Time
 
+--Model
 type alias Model =
   { 
     content: String
@@ -18,6 +19,10 @@ type alias Model =
 
 commentDecoder: Decode.Decoder Model
 commentDecoder =
+    {--
+        We need to decode the comment json that received from the server.
+        Value edited is only available if the comments has been edited at least once. 
+    --}
     Decode.succeed Model
         |> required "content" Decode.string 
         |> required "username" Decode.string

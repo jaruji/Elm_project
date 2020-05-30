@@ -58,6 +58,7 @@ viewGithub url =
         ] [ Icons.github |> Icons.withSize 25 |> Icons.toHtml [] ]
     ]
 
+--function that attempts to validate, if the url of social function is valid
 validate: String -> String -> Bool
 validate url social =
     if ( String.startsWith "http" url && String.contains social url && String.contains ".com" url) 

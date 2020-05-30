@@ -16,6 +16,12 @@ import Session exposing (UpdateSession(..))
 import Server
 import User exposing (..)
 
+{--
+  Page used for user login. This page is specific by modifying the global state of our app.
+  It uses a special return value of both it's init and update value (additionaly it returns
+  UpdateSession message, which will be used in Main.elm to update the state of our application)
+--}
+
 type alias Model =
   { name : String
   , password : String
@@ -46,6 +52,8 @@ type Status --status when logging in
 
 update : Msg -> Model -> (Model, Cmd Msg, UpdateSession)
 update msg model =
+  --we almost never update our global state, only situation when we update
+  --is when login is successful
   case msg of
     Empty ->
       (model, Cmd.none, NoUpdate)
@@ -67,6 +75,8 @@ update msg model =
     Response response ->
       case response of
         Ok user ->
+          --response Ok means login is successful, so we redirect user to homepage, store our session token in localStorage
+          --and finally, we update the global state of our app so that Main.elm receives all information about the logged in user
           ( { model | status = Success "" }, Cmd.batch [ Nav.pushUrl model.key ("/"), User.encodeForStorage user ], Update user )
         Err log ->
           ( { model | status = Failure log }, Cmd.none, NoUpdate )
@@ -88,13 +98,13 @@ view model =
           case model.warning of
             "Enter your username" ->
               div[ class "form-group has-error has-feedback" ][
-                label [ for "username" ] [ text "Username or E-mail:" ]
+                label [ for "username" ] [ text "Username:" ]
                 , input [ id "username", type_ "text", class "form-control", Html.Attributes.value model.name, onInput Name ] []
                 , span [ class "glyphicon glyphicon-remove form-control-feedback" ][]
               ]
             _ ->
               div[][
-                label [ for "username" ] [ text "Username or E-mail:" ]
+                label [ for "username" ] [ text "Username:" ]
                 , input [ id "username", type_ "text", class "form-control", Html.Attributes.value model.name, onInput Name ] []
               ]
         ]

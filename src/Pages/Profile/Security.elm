@@ -15,10 +15,10 @@ import Http
 import Browser.Navigation as Nav
 import Crypto.Hash as Crypto
 
---TODO
---implement password change DONE
---finish email verif and fix the server side error NOT YET
---implement account delete - deletes all your images and comments too! DONE
+{--
+    Tab of profile that shows up only if the user is logged in and is viewing his own profile.
+    Allows user to change his password, verify his email or delete his account.
+--}
 
 type alias Model =
   {
@@ -69,9 +69,11 @@ update msg model =
             (model, Cmd.none)
 
         Request ->
+            --request verification code
             (model, requestMail model.user.email)
 
         Verify -> 
+            --verify the verification code
             (model, verifyCode model)
 
         VerifyResponse response ->
@@ -79,17 +81,22 @@ update msg model =
                 Ok bool ->
                     case bool of
                         True ->
+                            --code was correct and account is now verified
                             ({ model | codeStatus = Success }, Nav.reload) 
                         False ->
+                            --code was incorrect
                             ({ model | codeStatus = Failure }, Cmd.none)
                 Err log ->
+                    --connection error
                     ({ model | codeStatus = Failure }, Cmd.none)
 
         MailResponse response ->
             case response of
                 Ok _ ->
+                    --mail successfully sent
                     ({ model | mailStatus = Success }, Cmd.none)
                 Err _ ->
+                    --mail sending failure
                     ({ model | mailStatus = Failure }, Cmd.none)
 
         Code string ->
@@ -102,26 +109,33 @@ update msg model =
             ({ model | newPassword = string }, Cmd.none)
 
         Delete ->
+            --initiate deleting of account
             ({ model | delStatus = Loading }, Cmd.none)
 
         ConfirmDelete ->
+            --confirm deleting of account
             (model, deleteAccount model)
 
         ChangePassword ->
+            --change the password
             (model, changePassword model)
 
         PasswordResponse response ->
             case response of
                 Ok _ ->
+                    --password successfully changed
                     ({ model | passStatus = Success }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/sign_in" ] )
                 Err _ ->
+                    --password changing failure
                     ({ model | passStatus = Failure }, Cmd.none)
 
         DeleteResponse response ->
             case response of
                 Ok _ ->
+                    --if account deleted, log out and redirect to homepage
                     ({ model | delStatus = Success }, Cmd.batch [ User.logout, Nav.reload, Nav.pushUrl model.key "/" ])
                 Err _ ->
+                    --else deletion failed
                     ({ model | delStatus = Failure }, Cmd.none)
 
 view: Model -> Html Msg
@@ -145,32 +159,6 @@ view model =
                     , style "width" "20%"
                     , style "margin" "auto" ][
                         text "Your account is verified" 
-                    ]
-            , hr [] []
-            , h3 [] [ text "Enable two-factor authentication?" ]
-            , div [ class "help-block" ][
-                text "Make your account more secure by enabling two-factor verification"
-            ]
-            , case user.verif of
-                True ->
-                    button [ class "btn btn-success"
-                    , style "margin-bottom" "15px"
-                    , style "margin-top" "20px" ][
-                        text "Enable" 
-                    ]                    
-                False ->
-                    div [] [
-                        button [ class "btn btn-success"
-                        , style "margin-bottom" "15px"
-                        , style "margin-top" "20px"
-                        , disabled True ][ 
-                            text "Enable" 
-                        ]
-                        , div [ class "alert alert-warning"
-                        , style "width" "20%"
-                        , style "margin" "auto" ][
-                            text "You must verify your e-mail address first!"
-                        ]
                     ]
             , hr [] []
             , h3 [] [ text "Want to change your password?" ]
@@ -208,6 +196,7 @@ view model =
             , button [ class "btn btn-primary"
             , style "margin-bottom" "10px"
             , style "margin-top" "20px"
+            --changing password only possible if email is verified
             , if model.user.verif == False then
                 disabled True
               else
@@ -267,6 +256,8 @@ view model =
 
 viewVerify: Model -> Html Msg
 viewVerify model =
+    --display a component used for verifying e-mail
+    --separated from view function to make it easier to read
   div [ class "form-horizontal fade in alert alert-info", id "form", style "margin" "auto", style "width" "75%" ] [
     h2 [ class "text-center" ] [ text "Verify your e-mail address" ]
     , div [ class "help-block" ] [ text ("Your account is not verified. We will send a verification mail to " ++ model.user.email) ]
@@ -327,6 +318,7 @@ deleteEncoder password =
 
 changePassword: Model -> Cmd Msg
 changePassword model =
+    --request that updates the password of user's account
     Http.request
     { method = "PATCH"
     , headers = [ Http.header "auth" model.user.token ]
@@ -339,6 +331,7 @@ changePassword model =
 
 deleteAccount: Model -> Cmd Msg
 deleteAccount model =
+    --request that deletes the user's account
     Http.request
     { method = "DELETE"
     , headers = [ Http.header "auth" model.user.token ]
@@ -350,7 +343,8 @@ deleteAccount model =
     }
 
 requestMail: String -> Cmd Msg
-requestMail email = 
+requestMail email =
+    --request an email containing code necessary to verify email address 
     Http.get {
       url = Server.url ++ "/mailer/send" ++ "?mail=" ++ email
       , expect = Http.expectWhatever MailResponse
@@ -358,6 +352,7 @@ requestMail email =
 
 verifyCode: Model -> Cmd Msg
 verifyCode model =
+    --verify the verification code
     Http.request {
         method = "GET"
         , headers = [ Http.header "auth" model.user.token ]

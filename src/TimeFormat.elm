@@ -2,6 +2,8 @@ module TimeFormat exposing (..)
 import TimeZone
 import Time exposing(Month, toDay, toMonth, toYear)
 
+--format the entire time, timezone is set to Bratislava
+--contains hh mm too
 formatTime: Time.Posix -> String
 formatTime time =
     let
@@ -13,6 +15,7 @@ formatTime time =
     ++ ":"
     ++ minuteToString (Time.toMinute zone time)
 
+--contains only the date (so no hh and mm)
 formatDate: Time.Posix -> String
 formatDate time =
     let
@@ -24,13 +27,7 @@ formatDate time =
     ++ " "
     ++ String.fromInt (Time.toYear zone time)
 
-getMonth: Time.Posix -> String
-getMonth time =
-    let
-        zone = TimeZone.europe__bratislava ()
-    in
-        monthToString (Time.toMonth zone time)
-
+--convert minutes to string + add 0 if necessary
 minuteToString: Int -> String
 minuteToString min =
     if min < 10 then
@@ -38,6 +35,7 @@ minuteToString min =
     else
         String.fromInt min
 
+--self-explanatory
 helper: Int -> String
 helper day =
     case day of
@@ -50,6 +48,7 @@ helper day =
         _ ->
             "th"
 
+--convert Month to String
 monthToString: Time.Month -> String
 monthToString month =
     case month of

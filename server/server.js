@@ -25,6 +25,7 @@ fastify.addContentTypeParser('*', function (req, done) {
   done(null, req)
 })
 
+//run server and listen on port 3000 for requests, if err then shutdown
 fastify.listen(3000, (err) => {
     if (err) {
         console.log(err)

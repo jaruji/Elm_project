@@ -10,6 +10,11 @@ import Image
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 import Json.Decode as Decode exposing (Decoder, field, string, int)
 
+{--
+    Tab of profile that shows up only if the user is logged in and is viewing his own profile.
+    Displays all images user ever favorited.
+--}
+
 type alias Model =
   {
     user: User.Model

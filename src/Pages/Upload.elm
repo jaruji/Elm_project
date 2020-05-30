@@ -19,9 +19,13 @@ import Loading as Loader
 import Tag
 import Task exposing (..)
 
+{--
+  This page is used to upload a file with additional metada on the server,
+  creating a new Post.
+--}
+
 type alias Model =
-  { hover: Bool
-  , preview: String
+  { preview: String
   , key: Nav.Key
   , user: Maybe User.Model
   , tag: String
@@ -39,15 +43,13 @@ type alias Model =
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model False "" key user "" [] 0 "" "" "" Loading "" NotLoaded "", Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
+  (Model "" key user "" [] 0 "" "" "" Loading "" NotLoaded "", Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
 
 type Msg
   = Pick
   | Empty
   | Title String
   | Description String
-  | DragEnter
-  | DragLeave
   | GotFiles File
   | GetPreview String
   | UploadResponse (Result Http.Error String)
@@ -71,8 +73,10 @@ update msg model =
   case msg of
     Empty ->
       (model, Cmd.none)
+      
     Pick -> 
-      (model, Select.file ["image/*", "application/pdf"] GotFiles)
+      --allow only image files to be picked
+      (model, Select.file ["image/*"] GotFiles)
 
     Title title ->
       ({ model | title = title }, Cmd.none)
@@ -80,22 +84,20 @@ update msg model =
     Description desc ->
       ({ model | description = desc }, Cmd.none)
 
-    DragEnter ->
-      ({ model | hover = True }, Cmd.none)
-
-    DragLeave ->
-      ({ model | hover = False }, Cmd.none)
-
     GotFiles file ->
       ( 
-        { model | hover = False, fileSize = File.size file, mime = File.mime file, fileStatus = Loaded file }
+        --store the file uploaded to browser in a Loaded Msg, save information and get the url
+        --of this file so we can display the preview
+        { model | fileSize = File.size file, mime = File.mime file, fileStatus = Loaded file }
         , Task.perform GetPreview <| File.toUrl file
       )
 
     GetPreview url ->
+      --get url of image uploaded to browser
       ({ model | preview = url }, Cmd.none)
 
     Upload ->
+      --handle all errors on frontend side (no title, no file)
       if model.title == "" then
         ({ model | warning = "You need to choose a title for your image" }, Cmd.none)
       else
@@ -103,6 +105,7 @@ update msg model =
           Loaded img ->
             case model.user of
               Just user ->
+                --start the image upload chain
                 ({ model | warning = "Loading" }, put model img user.token)
               Nothing ->
                 (model, Cmd.none)
@@ -114,8 +117,11 @@ update msg model =
         Ok id ->
           case model.user of
             Just user ->
+              --if upload of file was a success, we can upload it's metadata
               ({ model | id = id }, postMetatada model user.token id)
             Nothing ->
+              --otherwise, there is no reason to upload metadata as the file is not saved
+              --on server side (neither in fs or database)
               (model, Cmd.none)
         Err log ->
           ({ model | warning = "Connection error, please try again later" }, Cmd.none)
@@ -123,12 +129,15 @@ update msg model =
     Response response ->
       case response of
         Ok string ->
+          --if upload was successful, we redirect user to the newly created post
           (model, Nav.pushUrl model.key ("/post/" ++ model.id))
         Err log ->
+          --otherwise we notify the user that upload was not successful
           ({ model | warning = "Connection error, please try again later" }, Cmd.none)
 
     KeyHandler keyCode ->
       case keyCode of
+        --add tag to list of tags if enter is pressed
         13 ->
           if model.tag /= "" then
             ({ model | tags = model.tag :: model.tags, tag = ""}, Cmd.none)
@@ -143,14 +152,11 @@ update msg model =
     RemoveImg ->
       ({ model | fileStatus = NotLoaded, fileSize = 0 }, Cmd.none)
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
-  Sub.none
-
 view : Model -> Html Msg
 view model =
   case model.user of
     Just _ ->
+      --if user is signed in, he can upload an image and the page displays correctly
       div[ style "text-align" "center" ][
         h1 [] [ text "Upload your image" ]
         , div [ class "help-block" ] [ text "Fill out the following form to upload your image" ]
@@ -170,21 +176,16 @@ view model =
             ] []
           ]
           , if model.fileSize == 0 then
-             div [ 
-              style "border" (if model.hover then "1px solid lightgreen" else "1px solid #ccc")
-              , class "panel-body"
+              div [ class "panel-body"
               , style "padding" "60px"
-            ][ 
-              button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
-              , div [ class "help-block" ] [ text "-OR-" ]
-              , div [ class "help-block" ] [ text "Drag & Drop" ]
-              
-            ]
+              ][ 
+                button [ class "btn btn-primary", onClick Pick ] [ text "Select image" ]
+              ]
           else
             div [ class "panel-body" ] [
+              --we "remove" the image if user presses the X button next to it
               cancelButton RemoveImg "35"  
               , viewPreview model.mime model.preview
-              --, button [ class "cancel" ] [ span [ class "sr-only"] [ ] ]
           ]
           , div [ class "panel-footer", style "height" "100px" ][
             textarea [ 
@@ -226,6 +227,7 @@ view model =
         ]
         , button [ class "btn btn-success", onClick Upload, style "margin-bottom" "10px" ] [ text "Upload" ] 
         , case model.warning of
+          --handle potential warnings
           "" ->
             text ""
           "Loading" ->
@@ -245,6 +247,7 @@ view model =
             ]
       ]
     Nothing ->
+      --if user is not logged in, he is prompted to sign in!
       div [] [ 
         a [ href "/sign_in" ] [ text "Sign In" ]
         , text " to upload images"
@@ -256,30 +259,18 @@ view model =
 viewPreview: String -> String -> Html msg
 viewPreview mime url =
   div []
+    --display preview of image uploaded to browser
     [ 
-      case mime of
-        "application/pdf" ->
-          embed[ 
-          --option to upload .pdf files too
-          src url
-          , style "type" "application/pdf"
-          , style "scrollbar" "0"
-          , style "width" "100%"
-          , style "margin" "auto"
-          , style "display" "block"
-          --, style "max-height" "50000px"
-          ][]
-        _ ->
-          img [ src url
-          , style "text-align" "center" 
-          , style "display" "block" 
-          , style "width" "100%"
-          --, style "height" "100%" 
-          , style "margin" "auto" ] []
+      img [ src url
+      , style "text-align" "center" 
+      , style "display" "block" 
+      , style "width" "100%" 
+      , style "margin" "auto" ] []
     ]
 
 getSizeInKb: Int -> String
 getSizeInKb b =
+  --get filesize in kB
   String.fromFloat( Basics.toFloat b / 1024.0 )
 
 cancelButton: Msg -> String -> Html Msg
@@ -299,10 +290,12 @@ cancelButton msg offset =
 
 keyPress: (Int -> msg) -> Attribute msg
 keyPress tagger =
+  --listen to key press
   on "keydown" (Decode.map tagger keyCode)
 
 put: Model -> File -> String -> Cmd Msg
 put model file token = 
+  --upload a file on the server using Http.fileBody
   Http.request
     { 
       method = "PUT"
@@ -328,6 +321,7 @@ encodeMetadata model id =
 
 postMetatada: Model -> String -> String -> Cmd Msg
 postMetatada model token id =
+  --upload metadata to image with ID received as parameter
   Http.request
   { 
     method = "POST"

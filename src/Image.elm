@@ -13,6 +13,12 @@ import FeatherIcons as Icons
 import Time
 import TimeFormat
 
+{--
+  Represents the image collection from database.
+  This Model does not contain stats (points, views, favorites).
+  They are stored in Image.Stats file, so that we can reload them separately
+  if needed (if user votes/favorites image, only stats need to be reloaded)
+--}
 type alias Model =
   {
     title: String
@@ -24,6 +30,10 @@ type alias Model =
     , uploaded: Time.Posix
   }
 
+{--
+  This is the image that show up in Gallery page. Not all information
+  are necessary, also no real reason to separate the image stats here.
+--}
 type alias Preview =
   {
     id: String
@@ -36,12 +46,15 @@ type alias Preview =
     , uploaded: Time.Posix
   }
 
+-- Container is used for pagination of images
 type alias PreviewContainer =
   {
     total: Int
     , images: List Preview
   }
 
+-- Display the preview of image, clicking on it redirects the user to
+-- Post page based on the ID of image that he clicked on 
 showPreview: Preview -> Html msg
 showPreview image =
   div [ style "display" "inline-block"
@@ -108,6 +121,8 @@ showPreview image =
     ]   
   ]
 
+
+--different way of displaying the image, still only a view function
 showTab: Preview -> Html msg
 showTab post =
     div[ class "media"
@@ -137,6 +152,7 @@ showTab post =
         ]
     ]
 
+--trim the title of image if it's too long so it doesn't cause clipping
 trimString: String -> String
 trimString string =
   if String.length string > 25 then

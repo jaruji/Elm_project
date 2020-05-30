@@ -11,7 +11,10 @@ import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import Server
 
 --Model
-
+{--
+    Model contains information about the user. It is used
+    when we view the profile of other users and when we log in.
+--}
 type alias Model =
   {
     username: String
@@ -27,6 +30,10 @@ type alias Model =
     , registered: Time.Posix
   }
 
+{-- 
+    Preview of user, contains only basic information. Important for page Users,
+    which shows only previews of user accounts.
+--}
 type alias Preview =
   {
     username: String
@@ -34,6 +41,10 @@ type alias Preview =
     , verif: Bool
   }
 
+{--
+    this container holds list of user previews and number of total number of
+    users that should be displayed. Used for pagination 
+--}
 type alias PreviewContainer =
   {
     total: Int
@@ -85,6 +96,9 @@ decodeUserNotLoggedIn =
         |> hardcoded "Hidden"
         |> required "registeredAt" DecodeExtra.datetime
 
+
+--show the preview of user account, also acts as a link so we can 
+--redirect to the profile of user if preview is clicked
 showPreview: Preview -> Html msg
 showPreview user =
     a [ href ("profile/" ++ user.username)
@@ -112,13 +126,15 @@ showPreview user =
         ] 
     ] 
 
-
+--store user token in Local Storage using ports
 port storeToken : Maybe String -> Cmd msg
 
+--encode the token
 encodeForStorage: Model -> Cmd msg
 encodeForStorage user =
     storeToken (Just user.token)
 
+--delete the token from Local Storage, essentialy logging the user out
 logout : Cmd msg
 logout = 
     storeToken Nothing

@@ -22,6 +22,13 @@ import TimeFormat
 import Markdown
 import Time
 
+{--
+    This page shows up after opening a specific post. It contains all the details about the post,
+    comments and additionally (if user is logged in) it retrieves information about user's interaction
+    with the post - whether he already rated the image, or if he favorited it (so he can not vote/favorite multiple times).
+    It is possible to vote, favorite and add new comments to the post. All user's comments can be edited and deleted by only himself.  
+--}
+
 type alias Model =
   { 
     key: Nav.Key
@@ -32,12 +39,19 @@ type alias Model =
     , id: String
     , stats: StatsStatus
     , vote: InfoStatus
+    --editing attribute represents the comment we are editing in the moment
+    --if we are not editing anything, the value is Nothing
     , editing: Maybe String
+    --edit is the content of input user types into while editing a comment
     , edit: String
+    --same sa editing but with deleting comment
     , deleting: Maybe String
     , title: String
   }
 
+--this record stores the values of previous interactions with the post
+--which are received from the server at page load. If he has no interactions,
+--vote will be "none" and favorite will be False
 type alias Info =
   {
     vote: String
@@ -285,14 +299,18 @@ view model =
                                         , style "outline" "none"
                                         , style "transition" "all 0.3s ease 0s"
                                         , case info.vote of
+                                            --if user already upvoted the image, he can't upvote again
                                             "upvote" ->
                                                 style "color" "lime"
                                                 --, onClick Veto
                                             "invalid" ->
+                                                --if user not logged in, disable button
                                                 disabled True
                                             "none" ->
+                                                --if no vote, upvote on click
                                                 onClick Upvote
                                             "downvote" ->
+                                                --if he downvoted, he can veto his vote by clicking upvote
                                                 onClick Veto
                                             _ ->
                                                 style "" ""
@@ -304,6 +322,7 @@ view model =
                                         , style "outline" "none"
                                         , style "transition" "all 0.3s ease 0s"
                                         , case info.vote of
+                                            --same thing as for the upvote button
                                             "downvote" ->
                                                 style "color" "red"
                                                 --, onClick Veto
@@ -328,6 +347,7 @@ view model =
                                             _ ->
                                                 class ""
                                         , case info.favorite of
+                                            --if user already favorited the image, color the button red
                                             True ->
                                                 style "color" "red"
                                             False ->
@@ -439,6 +459,8 @@ view model =
 
 viewComment: Model -> Comment.Model -> Html Msg
 viewComment model comment =
+    --code used to display one comment. The Model value is needed so that if the comment
+    --belong to the logged in user, he can manage it (edit, delete).
     div[ class "media"
     , style "width" "60%"
     , style "margin" "auto"
@@ -548,6 +570,8 @@ viewComment model comment =
         ]
     ]
  ]
+
+ --HTTP requests and JSON encoding
    
 encodeID: String -> Encode.Value
 encodeID id =
@@ -715,6 +739,8 @@ getUserInfo id mbyUser =
 
 subscriptions: Model -> Sub Msg
 subscriptions model =
+    --every 30sec reload the comments and stats, so user can see the changes even if
+    --he did not refresh the page for a long time
     Time.every 30000 (\_ ->
         ( 
             Reload

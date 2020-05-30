@@ -18,6 +18,13 @@ import User
 import Image
 import Server
 
+{--
+  Gallery page shows the paginated output of all images that were uploaded to the server. This
+  input can be sorted (by rating, views and date). The pagination is implemented by using url.
+  This means that we can store the current page in url and we do not need to interact with SessionStorage 
+  to save page state at all.
+--}
+
 pageSize = 9
 
 type alias Model = 
@@ -45,15 +52,19 @@ type Msg
 
 init :  Maybe User.Model -> Nav.Key -> Maybe Int -> Maybe String -> (Model, Cmd Msg)
 init user key page sort =
+  --during init, we load the present values from url (Main.elm handles the url and sends the values as Maybe's)
   case page of
     Just int ->
       case sort of
         Just string ->
+          --if page and sort were specified in url, we use them to send a query to the server
           (Model Loading int key string, get string int)
         _ ->
+          --if only page, we sort by newest (default sorting)
           (Model Loading int key "newest", get "newest" int)
 
     Nothing ->
+      --if no page was specified, we use default values - page number 1 and sort by new
       ( Model Loading 1 key "newest", get "newest" 1)
 
 
@@ -71,6 +82,7 @@ update msg model =
                 Err _ ->
                     ({ model | status = Failure }, Cmd.none )
 
+        --messages that switch between different sorting methods
         SortNewest ->
           ({ model | status = Loading, sort = "newest" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=newest") )
 
@@ -79,6 +91,9 @@ update msg model =
 
         SortTop ->
           ({ model | status = Loading, sort = "rating" }, Nav.pushUrl model.key ("gallery?page=" ++ String.fromInt 1 ++ "&sort=rating") )
+        
+        --jumping to another page by changing url, which calls init of this page again and therefore changes the necessary attributes inside model
+        --based on the url
         Jump sort page ->
           (model, Cmd.batch [Nav.pushUrl model.key ("/gallery?page=" ++ String.fromInt page ++ "&sort=" ++ model.sort),Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
 
@@ -167,6 +182,7 @@ view model =
 
 viewButton: Model -> Int -> Html Msg
 viewButton model num =
+  --view pagination button, used to switch between pages
   button[ class "btn btn-default"
   , if model.page == num then
       style "opacity" "0.3"
@@ -189,6 +205,7 @@ getSort sort =
 
 get : String -> Int -> Cmd Msg
 get sort page =
+    --get paginated output 
     Http.get
       { 
         url = Server.url ++ "/images/get" ++ "?page=" ++ (String.fromInt page)

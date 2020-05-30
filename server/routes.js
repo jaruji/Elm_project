@@ -8,12 +8,15 @@ const assert = require('assert')
 const gpc = require('generate-pincode')
 const crypto = require('crypto')
 
+//name of MongoDB database that should be used (will contain all the collections)
 const database = 'database'
 
+//database url and connection on server start
 const url = 'mongodb://localhost:27017';
 const client = new MongoClient(url, {useNewUrlParser:true, useUnifiedTopology:true})
 const connection = client.connect()
 
+//function that receives an account object and adds more values (will be stored in db)
 function createAccount(obj){
     obj.verif = false
     obj.verifCode = gpc(6)
@@ -30,6 +33,7 @@ function createAccount(obj){
     return obj
 }
 
+//receives image obj and adds more data before storing in db
 function createImage(obj){
     obj.points = 0
     obj.views = 0
@@ -38,6 +42,8 @@ function createImage(obj){
     return obj
 }
 
+
+//send activation code to receiver by using nodemailer module
 function sendActivationMail(receiver, code){
     var transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -57,21 +63,25 @@ function sendActivationMail(receiver, code){
     transporter.sendMail(mailOptions, function(error, info){
         if (error) {
             console.log(error);
-        } else {
+        } 
+        else {
             console.log('Email sent: ' + info.response);
         }
     });
 }
 
+//function that returns number of days for a selected month (in selected year)
 function daysInMonth(month,year) {
     return new Date(year, month, 0).getDate();
 };
 
+//function routes contains all endpoints, which are necessary for communication with
+//our client application
 async function routes(fastify) {
 
-    fastify.post('/account/sign_up', async (req, res) => {    //registering new account
-        //log = user has created his account
-        res.header("Access-Control-Allow-Origin", "*")  //allows sharing the resource
+    //endpoint registers an account if username and email are unique, otherwise returns 400 error code
+    fastify.post('/account/sign_up', async (req, res) => {    
+        res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
         const db = client.db(database)
         let email = req.body.email
@@ -90,7 +100,8 @@ async function routes(fastify) {
         })
     })
 
-    //used for validating log in creditentials
+    //used for validating log in creditentials (if username/email are unique)
+    //used for dynamic checking (sending HTTP request from client on every onInput event)
     fastify.post('/account/validate', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
@@ -103,10 +114,11 @@ async function routes(fastify) {
         })
     })
 
+    //tell server you want to receive an e-mail containg a verification code to verify your e-mail address
     fastify.get('/mailer/send', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
-        let code = gpc(6)
+        let code = gpc(6) //generate the 6-digit verification code
         let email = req.query.mail
         const db = client.db(database)
         var cursor = await db.collection('accounts').updateOne({email: email}, {$set: {verifCode: code}})
@@ -115,6 +127,8 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
+    //endpoint used to verify your email address (find acc based on auth header and compoare)
+    //the verification codes - if equal, verify the account by {response: true} response
     fastify.get('/account/verify', async(req, res) => {
         //log this: user has verified his account
         res.header("Access-Control-Allow-Origin", "*")
@@ -138,6 +152,7 @@ async function routes(fastify) {
         }) 
     })
 
+    //endpoint used for singing into your account by entering your username and password
     fastify.post('/account/sign_in', async(req, res) => {
         res.header("Access-Control-Allow-Origin", "*")
         res.header("Access-Control-Allow-Headers", "X-Requested-With")
@@ -149,11 +164,13 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Something went wrong on the server's side"))
             }
             else if(result){
+                //delete all sensitive info that is not needed inside the web application
                 delete result._id
                 delete result.password
                 delete result.verifCode
                 delete result.secretKey
                 delete result.twoFactor
+                //generate new session token for every new login
                 let token = crypto.randomBytes(48).toString('hex')
                 var update = await db.collection('accounts').updateOne({username: username, password: password}, {$set: {token: token}}, function(err, answer){
                     if(err){
@@ -173,6 +190,7 @@ async function routes(fastify) {
         })
     })
 
+    //authenticate user based on his token only, return account info (same as sign_in)
     fastify.get('/account/auth', async(req, res) => {
         let auth = req.headers.auth
         const db = client.db(database)
@@ -195,6 +213,8 @@ async function routes(fastify) {
         })
     })
 
+    //endpoint used for changing your password, requires auth header to authenticate the user
+    //account is found based on token value
     fastify.patch('/account/password', async(req, res) => {
         const db = client.db(database)
         let auth = req.headers.auth
@@ -214,8 +234,8 @@ async function routes(fastify) {
         })
     })
 
+    //endpoint for deleting user account, requires auth header and password to prove user identity
     fastify.delete('/account/delete', async(req, res) => {
-        //maybe delete the images from system too?
         const db = client.db(database)
         let auth = req.headers.auth
         let password = req.body.password
@@ -224,6 +244,9 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Something went wrong on the server's side"))
             }
             if (result){
+                //delete all information related to the account (because username is used instead of FK)
+                //if we don't delete everything and a new account is created with the same username
+                //it will cause conflicts
                 await db.collection('accounts').deleteMany({token: auth, username: result.username})
                 await db.collection('images').deleteMany({author: result.username})
                 await db.collection('comments').deleteMany({username: result.username})
@@ -238,8 +261,8 @@ async function routes(fastify) {
 
     })
 
+    //return only public user info! Used while displaying user profile (receives username)
     fastify.get('/account/user', async(req, res) => {
-        //return only public user info! input is username, returns
         let username = req.query.username
         const db = client.db(database)
         var cursor = await db.collection('accounts').findOne({username: username}, function(err, result){
@@ -247,6 +270,7 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Something went wrong on the server's side"))
             }
             else if(result){
+                //delete all sensitive information
                 delete result._id
                 delete result.password
                 delete result.verifCode
@@ -262,6 +286,9 @@ async function routes(fastify) {
         })
     })
 
+    //get posts belonging to a certain account, for performance reasons added limit option,
+    //which allows to manage the number of posts received
+    //if limit value is 0, return all posts! (0 means no limit)
     fastify.get('/account/posts', async(req, res) => {
         //get preview of user's posts
         let author = req.query.username
@@ -275,17 +302,21 @@ async function routes(fastify) {
         res.send(output)
     });
 
+    //return 5 latest posts, which are displayed on homepage of our application
     fastify.get('/posts/latest', async(req, res) => {
         //get preview of user's posts
         const db = client.db(database)
         var cursor = await db.collection('images').find().sort({uploaded: -1}).limit(5).toArray()
         let output = cursor.map(({_id, description, tags, comments, upvotes, downvotes, ...rest}) => rest)
+        //only filenames are stored, so we need to add URL
+        //if port of server is changed, this needs to change too!
         output.map(function(key){
             key["file"] = "http://localhost:3000/img/" + key.file
         })
         res.send(output)
     });
 
+    //simple update of basic profile information 
     fastify.patch('/account/update', async(req, res) => {
         //log this = user has updating his personal settings
         let auth = req.headers.auth
@@ -294,6 +325,7 @@ async function routes(fastify) {
         let twitter = req.body.twitter
         let github = req.body.github
         const db = client.db(database)
+        //if url is deleted in webapp (means we receive ""), delete it in database too
         if(facebook === "")
             facebook = null
         if(twitter === "")
@@ -302,14 +334,15 @@ async function routes(fastify) {
             github = null
         let cursor = db.collection('accounts').updateMany({token: auth}, {$set:{bio: bio, facebook:facebook, twitter:twitter, github:github, updatedAt: new Date()}})
         res.code(200).send()
-        //TODO Update all changes
     });
 
+    //get account activity for a certain month, return object with number of posts for each day of month
     fastify.get('/account/activity', async(req, res) => {
         let date = req.query.date
         let username = req.query.username
         const db = client.db(database)
         let cursor = 
+        //retrieve year, month and day of month from timestamp "uploaded" in database
         db.collection('images').aggregate([
             {$match:
             {
@@ -326,6 +359,8 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Server error"))
             }
             else if(results){
+                //for every day of month, count the number of posts and construct an array
+                //which contains these values. This array will be sent as a response to this request.
                 let output = []
                 for(let i = 1; i < daysInMonth(date, 2020) + 1; i++){
                     output.push({day: i, count: 0})
@@ -343,6 +378,9 @@ async function routes(fastify) {
         })
     })
 
+    //upload metadata to a image based to its ID. Multipart body was not working, so this was
+    //the only other solution I came up with. It is possible for the server to crash during posting
+    //metadata, which would result in a faulty image stored in database (image without metadata) - should be fixed in the future
     fastify.post('/upload/metadata', async(req, res) => {
         let auth = req.headers.auth
         let id = req.body.id
@@ -381,7 +419,9 @@ async function routes(fastify) {
         })
     })
 
-    //upload files to the server by posting to this url
+    //upload files to the server by posting to this url. If image fails to store on server side
+    //unsync (delete image) and respond with code 400. Otherwise return the ID of uploaded image
+    //so in the next step, it's metadata can be uploaded with this ID as it's parameter.
     fastify.put('/upload/image', async(req, res) => {
         //log this = user has uploaded new picture
         let dir = "./server/data/img"
@@ -405,14 +445,14 @@ async function routes(fastify) {
             }
             else{
                 console.log(`File stored to ${dir}/${filename}`)
-                res.send({response: ID})
+                res.send({response: ID})    //respond with ID if upload succeeded
             }
           }
         )
     })
 
+    //upload profile image, very simillar to /upload/image
     fastify.put('/upload/profile', async(req, res) => {
-        //log this: user has changed their profile picture
         user = req.headers["user"];
         const db = client.db(database)
         await db.collection('accounts').findOne({username: user}, function(err, result){
@@ -420,6 +460,8 @@ async function routes(fastify) {
                 res.code(500).send(new Error("Server error"))
             }
             else if(result){
+                //name profilepic based on objectID of account so no issues can arise from
+                //accounts with weird names, that could possibly cause problems or even crash the server
                 let filename = result._id.toHexString() + path.extname(req.headers["name"]);    //get name of received file
                 let link = "http://localhost:3000/img/profile/" + filename
                 let dir = "./server/data/img/profile/"
@@ -451,10 +493,12 @@ async function routes(fastify) {
         })
     })
 
+    //seach accounts based on their username (if username contains q, account is eligible)
     fastify.get('/accounts/search', async(req, res) => {
         let query = req.query.q
         const db = client.db(database)
         var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().toArray()
+        //leave sensitive/not necessary info out
         let output = cursor.map(({_id, secretKey, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
         let obj = new Object()
         obj.total = await db.collection('accounts').countDocuments({"username": {$regex: query, $options: 'i'}})
@@ -462,20 +506,29 @@ async function routes(fastify) {
         res.send(obj)
     })
 
+    //return accounts matching the query and use pagination to load only a certain ammount of accounts at a time
+    //pagesize is 20, meaning that one page will show and receive only 20 accounts at max
+    //next page will show indexes 20-40 and so on
     fastify.get('/accounts/paginate', async(req, res) => {
         let query = req.query.q 
         let page = parseInt(req.query.page)
         let pageSize = 20
+        //calculate offset so we can retrieve the next 20 images if page > 1
         let offset = pageSize * (page - 1)
         const db = client.db(database)
+        //the search is case insensitive
         var cursor = await db.collection('accounts').find({"username": {$regex: query, $options: 'i'}}).sort().skip(offset).limit(pageSize).toArray()
+        //leave out sensitive/unnecessary information
         let output = cursor.map(({_id, secretKey, registeredAt, password, token, email, verifCode, bio, firstName, surname, facebook, twitter, github, occupation, age, twoFactor, history, ...rest}) => rest)
         let obj = new Object()
+        //count number of matches, which is needed for pagination on web app side!
         obj.total = await db.collection('accounts').countDocuments({"username": {$regex: query, $options: 'i'}})
         obj.users = output
         res.send(obj)
     })
 
+    //retrieve all images which were favorited by the user in the past
+    //receives username and returns all favorites
     fastify.get('/account/favorites', async(req, res) =>{
         let username = req.query.username
         const db = client.db(database)
@@ -496,6 +549,7 @@ async function routes(fastify) {
                             result["uploaded"] = results[i].date
                             output.push(result)
                             if(i === results.length - 1){
+                                //again, we need to complete the URL because only filename is stored
                                 output.map(function(key){
                                     key["file"] = "http://localhost:3000/img/" + key.file
                                 })
@@ -514,8 +568,8 @@ async function routes(fastify) {
         })
     })
 
+    //simple search, return images that match the query (if title contains q) 
     fastify.get('/images/search', async (req, res) => { 
-        //somehow need to send back the total number of pages so I can map the buttons
         const db = client.db(database)
         let query = req.query.q
         var cursor = await db.collection('images').find({"title": {$regex: query, $options: 'i'}}).toArray()
@@ -529,16 +583,19 @@ async function routes(fastify) {
         res.send(obj)
     })
     
+    //get all images but with pagination, so only a fixed amount at a time (max 9 images per page)
     fastify.get('/images/get', async (req, res) => { 
-        //somehow need to send back the total number of pages so I can map the buttons
         const db = client.db(database)
         let page = parseInt(req.query.page)
+        //obtain a parameter by which the images will be sorted
         let sort = req.query.sort
+        //obtain order of sorting
         let order = parseInt(req.query.order)
         let query = {}
         query[sort] = order
         let pageSize = 9
         let offset = pageSize * (page - 1)
+        //find images based on current page, but before that we need to sort the collection
         var cursor = await db.collection('images').find().sort(query).skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
         output.map(function(key){
@@ -546,11 +603,14 @@ async function routes(fastify) {
             //key["count"] = count
         })
         let obj = new Object()
+        //again, total count of images is needed for pagination on frontend side
         obj.total = await db.collection('images').countDocuments()
         obj.images = output
         res.send(obj)
     })
 
+    //get a specific image based on its ID. Is used with post page, loads all information about
+    //the image. Also updates viewcount, so with every new request we raise the view value by 1
     fastify.get('/image', async (req, res) => {  //image database
         const db = client.db(database)
         let id = req.query.id
@@ -561,6 +621,8 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
+    //get the stats of specific image - views, votes, favorites so we can display them without
+    //requesting the entire image
     fastify.get('/image/stats', async (req, res) => {
         const db = client.db(database)
         let id = req.query.id
@@ -576,6 +638,10 @@ async function routes(fastify) {
         res.send(cursor)
     })
 
+    //endpoint which informs a user about his interactions with specific image -
+    //meaning that database need to keep track of if the user voted on a specific image or
+    //if he favorited it - if we didn't track this, one user would be able to vote/favorite an image
+    //multiple times, which doesn't make sense
     fastify.get('/image/info', async (req, res) => {
         const db = client.db(database)
         let id = req.query.id
@@ -608,6 +674,9 @@ async function routes(fastify) {
         })
     })
 
+
+    //image rating, there are 3 basic types of votes - upvote (+1 point), downvote (-1)
+    //and veto, meaning the user wants to take back his vote. Only logged in users can vote!
     fastify.post('/image/rate', async (req, res) => {
         //log this: user has rated an image
         let auth = req.headers.auth
@@ -620,14 +689,17 @@ async function routes(fastify) {
             }
             else if(result){
                 let username = result.username
+                //handle case if vote is upvote
                 if (vote === "upvote"){
                     var upvote = await db.collection('images').updateOne({id: id}, {$inc:{points: 1}})
                     var insert = await db.collection('votes').updateOne({id: id, username: username}, {$set:{id: id, username: username, vote: vote }}, {upsert: true})
                 }
+                //if vote is downvote
                 else if (vote === "downvote"){
                     var downvote = await db.collection('images').updateOne({id: id}, {$inc:{points: -1}})
                     var insert = await db.collection('votes').updateOne({id: id, username: username}, {$set:{id: id, username: username, vote: vote }}, {upsert: true})
                 }
+                //if we want to take back our initial vote
                 else if(vote === "veto"){
                     var find = await db.collection('votes').findOne({id: id, username: username}, async function(err, result){
                         if(err){
@@ -657,6 +729,9 @@ async function routes(fastify) {
         res.code(200).send()
     })
     
+    //image favorite is simpler than rating - only favorite/unfavorite
+    //if we unfavorite, delete the entry from favorites collection
+    //only logged in users can favorite an image
     fastify.post('/image/favorite', async(req, res) => {
         let id = req.body.id
         let auth = req.headers.auth
@@ -688,6 +763,7 @@ async function routes(fastify) {
         })
     })
 
+    //deleting an image requires a logged in user and ID of image we want to delete 
     fastify.delete('/image/delete', async(req, res) =>{
         let id = req.body.id
         let auth = req.headers.auth
@@ -702,11 +778,13 @@ async function routes(fastify) {
                         res.code(500).send(new Error("Server error"))
                     }
                     else if(result){
+                        //delete the image from our fs so it won't be left hanging
                         fs.unlink("./server/data/img/" + result.file, async function(err){
                             if(err){
                                 res.code(500).send(new Error("File deletion failed"))
                             }
                             else{
+                                //delete all info connected to the image
                                 await db.collection('images').deleteOne({id: id})
                                 await db.collection('comments').deleteMany({imageID: id})
                                 await db.collection('votes').deleteMany({id: id})
@@ -726,6 +804,9 @@ async function routes(fastify) {
         })
     })
 
+    //add a new comment, very simple - just receive content and id of image
+    //also needs username of author, so we can use it later to select profile image from
+    //accounts collection
     fastify.post('/comment/add', async (req, res) => { 
         //log this: user has added new comment
         let content = req.body.content
@@ -736,6 +817,7 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
+    //get all comments related to specific image based on image ID
     fastify.get('/comment/get', async (req, res) => {
         let id = req.query.id
         const db = client.db(database)
@@ -746,6 +828,10 @@ async function routes(fastify) {
             else if(results){
                 if(results.length === 0)
                     res.send(results)
+                //iterate over all comments and add a image loaded from accounts collection
+                //this approach is better than storing the image together with comments, because
+                //it would cause issues if the user would change his profile image to a file with
+                //different file extension (because old profile images are deleted!)
                 for(let i = 0; i < results.length; i++){
                     var user = await db.collection('accounts').findOne({username: results[i].username}, async function(err, result){
                         if(err){
@@ -771,6 +857,9 @@ async function routes(fastify) {
         })
     })
 
+    //allow user to edit the content of his comment
+    //add edited timestamp (or updates if already added)
+    //this timestamp will begin showing on comment in web app if it exists!
     fastify.patch('/comment/edit', async (req, res) => {
         let content = req.body.comment
         let id = req.body.id
@@ -779,6 +868,7 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
+    //simple comment deletion based on the ID of comment
     fastify.delete('/comment/delete', async (req, res) => {
         let id = req.body.id
         const db = client.db(database)
@@ -786,12 +876,17 @@ async function routes(fastify) {
         res.code(200).send()
     })
 
+    //used in dynamic search of tags - search is case insensitive, but only a full match
+    //counts - meaning even if the query (q) is a substring, it still won't match
+    //the output is paginated again
     fastify.get('/tags', async(req, res) => {
         let query = req.query.q
         let page = parseInt(req.query.page)
         let pageSize = 9
         let offset = pageSize * (page - 1) 
         const db = client.db(database)
+        //if tag is composed of multiple words, this RegExp will find a match if q is one of these words
+        //also it makes the search case insensitive (i)
         query = new RegExp(`\\b${query}\\b`, 'i')
         var cursor = await db.collection('images').find({tags: { $in: [query] }}).skip(offset).limit(pageSize).toArray()
         let output = cursor.map(({_id, description, tags, comments, ...rest}) => rest)
@@ -799,11 +894,14 @@ async function routes(fastify) {
             key["file"] = "http://localhost:3000/img/" + key.file
         })
         let obj = new Object()
+        //needed for pagination...
         obj.total = await db.collection('images').countDocuments({tags: { $in: [query] }})
         obj.images = output
         res.send(obj)
     })
 
+    //returns (unique) tags of the last 10 uploaded images
+    //could not figure out how to return most frequent tags, so I made it simpler
     fastify.get('/tags/trending', async(req, res) => {
         const db = client.db(database)
         var cursor = db.collection('images').find().sort({uploaded: -1}).limit(10).toArray(function(err, results){
@@ -811,6 +909,7 @@ async function routes(fastify) {
                 res.code(500).send()
             }
             else if(results){
+                //return only unique tags
                 var arr = []
                 results.forEach(key =>{
                     if(key.tags === null)

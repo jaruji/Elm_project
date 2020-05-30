@@ -32,6 +32,10 @@ import Svg
 import Svg.Attributes as SvgAttrs
 --elm-live src/Main.elm -u -- --output=elm.js (will start server on localhost with pushstate enabled)
 
+{--
+  Our main is using Browser.application function, so we can intercept URL changes and react
+  to them by serving our own Pages.
+--}
 main : Program (Maybe String) Model Msg
 main =
   Browser.application
@@ -44,7 +48,9 @@ main =
     }
 
 -- MODEL
-
+--page: represents the currently displayed Page, each page is defined in /Page directory
+--search: SearchBar component
+--state: represents the global state of our application
 type alias Model =
   { key: Nav.Key
   , url: Url.Url
@@ -67,11 +73,20 @@ type Page
   | Tags Tags.Model
   | Results Results.Model
 
+{--
+  Multiple states of our app. Most of the time our app is ready,
+  meaning it is fully working. If we have a session token stored in LocalStorage
+  on application init, state NotReady is chosen. The app will attempt to authenticate
+  the user, if it succeeds state will change to Ready.  If it fails with BadRequest, the
+  state will still change to Ready but session value will be Nothing! If server issue arises,
+  Failure state will be chosen.
+--}
 type State
   = Ready Session.Session
   | NotReady String
   | Failure
 
+--Multiple Msg required for correct funcionality of single page application
 type Msg
   = UrlRequest Browser.UrlRequest
   | UrlChange Url.Url
@@ -87,21 +102,25 @@ type Msg
   | PostMsg Post.Msg
   | ResultsMsg Results.Msg
   | TagsMsg Tags.Msg
+  --logout using ports (User.elm)
   | LogOut
+  --Handle server response when authenticating based on token in LocalStorage
   | Response (Result Http.Error User.Model)
 
 init : Maybe String -> Url.Url -> Nav.Key -> (Model, Cmd Msg)
 init flag url key =
   case flag of
+    -- If no entry in localStorage, user is not signed in
     Nothing ->
-      routeUrl url  --if no entry in localStorage, user is not signed in
+      routeUrl url 
         { key = key
         , url = url
         , page = Loading
         , search = Search.init key
         , state = Ready Session.init
         }
-    Just token -> -- if there is a token in localStorage, use it to load user info
+    -- If there is a token in localStorage, use it to authenticate user (state NotReady)
+    Just token -> 
       routeUrl url 
         { key = key
         , url = url
@@ -114,22 +133,37 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     UrlRequest urlRequest ->
+      --handle internal and external URL's
       case urlRequest of
         Browser.Internal url ->
-          ( model, Nav.pushUrl model.key (Url.toString url) )
+          -- if URL belongs to our app, use Nav.pushUrl to add it to our url
+          (model, Nav.pushUrl model.key (Url.toString url))
 
-        Browser.External href ->
-          ( model, Nav.load href )
+        Browser.External url ->
+          {-- 
+            If URL belongs to external website, we need to load it using Nav.load.
+            This will cause a page load! So when we come back, state that was not saved
+            will be lost
+          --}
+          (model, Nav.load url)
 
     UrlChange url ->
+      --use routeUrl function to react to all URL changes
       routeUrl url model
 
     LogOut ->
+      --log the user out by calling User.logout port function
       ( { model | state = Ready Session.init }, User.logout )
-    
+  
+    ------------------------------------------------------------------------
+
+    {-- 
+      following messages are used for converting the values returned by update function to
+      (Model, Cmd Msg). This solution was inspired by https://github.com/elm/package.elm-lang.org
+    --}
+
     UpdateSearch mesg -> 
-       --({ model | search = Search.update mesg (Search.getModel model.search) }, Cmd.none)
-       stepSearch model (Search.update mesg (Search.getModel model.search))
+      stepSearch model (Search.update mesg (Search.getModel model.search))
 
     SignUpMsg mesg ->
       case model.page of
@@ -201,17 +235,26 @@ update msg model =
         _ -> 
           (model, Cmd.none)
 
+    ------------------------------------------------------------
+
     Response response ->
       case response of
         Ok user ->
+          --page refresh without calling init! Logs in user by using Session.set function.
           ({ model | state = Ready (Session.set user) }, Nav.pushUrl model.key (Url.toString model.url))
-          --page refresh without calling init!
         Err log ->
           case log of
-            BadStatus code -> --if invalid token, user gets logged out of the app
+            BadStatus code -> 
+              --if invalid token, user gets logged out of the app
               ({ model | state = Ready Session.init }, Cmd.batch[ User.logout, Nav.reload ])
             _ ->
+              --if other error, means server is having issues so the app won't work
               ({ model | state = Failure }, Cmd.none)
+
+--these are the functions used for converting Model and Msg of subtypes to Main type.
+--With this approach we can separate each component and page as their own modules, while
+--still handling their internal Msg and also all Cmd Msg. All these functions are essentially equal,
+--as they only convert the values produced by our imported modules.
 
 stepTags: Model -> (Tags.Model, Cmd Tags.Msg) -> (Model, Cmd Msg)
 stepTags model (tags, cmd) =
@@ -234,35 +277,34 @@ stepProfile model (profile, cmd) =
   ({ model | page = Profile profile }, Cmd.map ProfileMsg cmd)
 
 stepSearch: Model -> (Search.Model, Cmd Search.Msg) -> (Model, Cmd Msg)
-stepSearch model ( search, cmd ) =
+stepSearch model (search, cmd) =
   ({ model | search = (search, cmd) }, Cmd.map UpdateSearch cmd)
 
 stepHome : Model -> (Home.Model, Cmd Home.Msg) -> (Model, Cmd Msg)
-stepHome model ( home, cmd ) =
+stepHome model (home, cmd) =
   ({ model | page = Home home }, Cmd.map HomeMsg cmd)
   
 stepUpload : Model -> (Upload.Model, Cmd Upload.Msg) -> (Model, Cmd Msg)
-stepUpload model ( upload, cmd ) = 
+stepUpload model (upload, cmd) = 
   ({ model | page = Upload upload }, Cmd.map UploadMsg cmd)
 
 stepSignUp : Model -> (SignUp.Model, Cmd SignUp.Msg) -> (Model, Cmd Msg)
-stepSignUp model ( signup, cmd ) =
+stepSignUp model (signup, cmd) =
   ({ model | page = SignUp signup }, Cmd.map SignUpMsg cmd)
 
---shared state!! by using message contained in signin update, i can transform state in main 
 stepSignIn : Model -> (SignIn.Model, Cmd SignIn.Msg, Session.UpdateSession) -> (Model, Cmd Msg)
-stepSignIn model ( signin, cmd, session ) = 
+stepSignIn model (signin, cmd, session) = 
+  --shared state! By using message contained in signin update, we can transform state in main 
   ({ model | page = SignIn signin, state = Ready (Session.update session Session.init) }, Cmd.map SignInMsg cmd)
 
 stepGallery : Model -> (Gallery.Model, Cmd Gallery.Msg) -> (Model, Cmd Msg)
-stepGallery model ( gallery, cmd ) = 
+stepGallery model (gallery, cmd) = 
   ({ model | page = Gallery gallery } , Cmd.map GalleryMsg cmd)
-
--- SUBSCRIPTIONS
-
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+  --using this approach, we can manage the subscriptions of our pages one at a time
+  --this means we don't have to worry about multiple subscriptions running at the same time
   case model.page of
     Home home ->
       Home.subscriptions home |> Sub.map HomeMsg
@@ -272,11 +314,12 @@ subscriptions model =
       Tags.subscriptions tags |> Sub.map TagsMsg
     _ ->
       Sub.none
- 
--- VIEW
 
 view : Model -> Browser.Document Msg
 view model =
+    --view function that handles the display of each page. This approach is good because it
+    --supports consistency, as we can always use the same page structure. Only thing we swap is
+    --the content of each page, while we can even use the view function of each page.
     case model.page of
       NotFound string ->
         { title = "Not Found"
@@ -298,7 +341,6 @@ view model =
         { title = "Home"
         , body = [
           viewHeader model
-          --, viewBanner model (Server.url ++ "/img/test.jpg")
           , Home.view home |> Html.map HomeMsg
           , viewFooter
           ]
@@ -411,6 +453,8 @@ viewHeader model =
           ]
         ]
         , ul [ class "nav navbar-nav" ][
+            --if currently displayed page is equal to the page the link redirects to
+            --we color it white so it is obvious we are currently showing exactly that page
             li [] [ a [ href "/", case model.page of 
               Home _ -> style "color" "white" 
               _ -> style "" "" ] [ text "Home" ] ]
@@ -428,8 +472,10 @@ viewHeader model =
               _ -> style "" "" ] [ text "Tags" ] ]
             , li [] [ Search.view (Search.getModel model.search) |> Html.map UpdateSearch ]
         ]
-        
         , case getUser model.state of
+            --the navbar differs when we are logged in. If we are logged out, we obviously
+            --display the Sign In and Sign Up options. These are no longer necessary when user
+            --logs in, so we swap them to profile link and logout option!
             Nothing ->
               ul [ class "nav navbar-nav navbar-right" ][
                 li [] [ a [ href "/sign_in" , case model.page of 
@@ -460,12 +506,14 @@ viewHeader model =
 
 viewBody: Model -> String -> Html Msg
 viewBody model error =
+  --view body of error page where the error is obtained as parameter so we can reuse it
   div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
     h2 [] [ text error ]
   ]
 
 viewLoading: Model -> Html Msg
 viewLoading model =
+  --view that shows up if the app is loading some data
   div [ style "height" "800px", style "margin-top" "25%", style "text-align" "center" ] [
     h2 [] [ text "Fetching data from the server" ]
     , Loader.render Loader.Circle {defaultConfig | size = 60} Loader.On
@@ -473,6 +521,7 @@ viewLoading model =
 
 viewFooter: Html Msg
 viewFooter =
+  --simple footer
   div [ style "bottom" "0%"
   , style "height" "100px"
   , style "text-align" "center"
@@ -497,10 +546,18 @@ viewFooter =
 --entire routing logic is defined in this function (url and what Model+Cmd it should produce)
 routeUrl : Url.Url -> Model -> (Model, Cmd Msg)
 routeUrl url model =
+  --function that allows us to handle URL's and choose how to handle them
   let
     parser =
-      Parser.oneOf   --rerouting based on url change!
-        [ (s "gallery" <?> Query.int "page" <?> Query.string "sort")
+      Parser.oneOf  --parser will be one of these (these are almost always used together!)
+        [ 
+          {--
+            Explanation: We need to handle (detect) the URL and we also need a function that will 
+            be executed when we detect this url. We use Parser.map to connect these two together, and after obtaining
+            the parser value we can use Url.Parse.parse to handle this parser and produce results. This code is the main logic behind single
+            page application routing.
+          --}
+          (s "gallery" <?> Query.int "page" <?> Query.string "sort")
             |> Parser.map 
               (\page sort -> stepGallery model (Gallery.init (getUser model.state) model.key page sort))
           , (s "sign_up") 
@@ -541,17 +598,16 @@ routeUrl url model =
         ]
   in 
   case model.state of
+        --we only parse the url when our App state is Ready. If it's not, we wait for the
+        --state to reslove first!
         NotReady token ->
           ({ model | page = Loading }, loadUser token)
 
-        Failure ->
-          ({ model | page = NotFound "We are currently having server issues, please try again later" }, Cmd.none)
-        
         _ ->
+          --we use Maybe.withDefault in combination with Url.Parse.parse (if result of parse is Nothing, page not found will be shown)
           Maybe.withDefault ({ model | page = NotFound "Oops, this page doesn't exist!" }, Cmd.none) (Parser.parse parser url) 
 
 --getter for user from current state
-
 getUser: State -> Maybe User.Model
 getUser state =
   case state of
@@ -565,6 +621,7 @@ getUser state =
       Nothing
 
 --use this function if user token is stored in local storage
+--authenticates user based on token stored in ls
 loadUser: String -> Cmd Msg
 loadUser token =
   Http.request

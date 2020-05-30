@@ -16,6 +16,14 @@ import Tag
 import Query
 import Time
 
+{--
+    This page displays paginated output of images that fit the query - the query being a
+    string representing a tag, that the images contain. In this file, we use Session Storage
+    to store the state so that we can restore it even after leaving this page. This approach is
+    useful for saving and restoring essentially any state within the single page app.
+--}
+
+--9 images per page
 pageSize = 9
 
 type alias Model =
@@ -30,6 +38,8 @@ type Msg
   | Query String
   | Response (Result Http.Error(Image.PreviewContainer))
   | Jump Int
+  --Restoring state receives Maybe Encode.Value - maybe the json is in session storage, if
+  --it isn't we simply receive Nothing
   | Restore (Maybe Encode.Value)
   | Request
 
@@ -42,8 +52,10 @@ init: Nav.Key -> Maybe String -> (Model, Cmd Msg)
 init key query =
     case query of
         Just q ->
+            --if a query is encoded in URL, paste it into the search bar and send query to server
             (Model q Loading 1, Cmd.batch[ Task.perform (\_ -> Empty) (Dom.setViewport 0 0), getImages q 1, Query.saveState (Query.encode q 1) ])
         Nothing ->
+            --otherwise dont send anyting to server and try to restore the state from Session Storage
             (Model "" Loading 1, Cmd.batch[ Task.perform (\_ -> Request) (Dom.setViewport 0 0) ])
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -53,9 +65,12 @@ update msg model =
             (model, Cmd.none)
 
         Request ->
+            --send a request to JavaScript that initiates the restoring of stored state
             (model, Query.request ())
 
         Jump int ->
+            --switching between pages of paginated output, we need to update the state in session
+            --storage with the new page value
             if model.query == "" then
                 ({ model | page = int, status = Loading }, Cmd.none)
             else
@@ -65,7 +80,9 @@ update msg model =
                 , Query.saveState (Query.encode model.query int) 
                 ])
         Query string ->
+            --querying the server, we also need to store the query in session storage so it can be restored later
             if string == "" then
+                --delete the session storage entry if query is empty - no point in storing this
                 ({ model | query = string, status = Loading, page = 1 }, Query.saveState (Query.encode string model.page))
             else
                 ({ model | query = string, page = 1 }, Cmd.batch[ getImages string model.page, Query.saveState (Query.encode string model.page) ])
@@ -78,10 +95,13 @@ update msg model =
                     ({ model | status = Failure "Connection error" }, Cmd.none)
         
         Restore value ->
+            --message used for restoring stored state
             case value of
                 Nothing ->
+                    --if restored value is Nothing, session storage was empty
                     (model, Cmd.none)
                 Just json ->
+                    --otherwise we decode the entry and use it to restore our page state
                     let
                         query = Query.decodeQuery json
                         page = Query.decodePage json
@@ -173,4 +193,6 @@ getImages query page =
 
 subscriptions: Model -> Sub Msg
 subscriptions model =
+    --we must be subscribed to the Restore function so we will get the Maybe Encode.Value when
+    --it will be sent our way
     Query.restoreState Restore

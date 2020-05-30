@@ -13,6 +13,15 @@ import Json.Encode as Encode exposing (..)
 import Json.Decode.Pipeline as Pipeline exposing (required, optional)
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 
+{--
+    This page shows the preview of all the registered users. The previews are paginated,
+    meaning that only a fixed amount (max 20) previews will show per one page. This page also
+    allows user to search other users based on their username. The search is dynamic, so on
+    every onInput event in the searchbar, a HTTP request (Cmd Msg) will be sent. State of search
+    will be lost if user leaves this page. The pagination doesn't use URL, it is realized entirely
+    through the Model (page and query values).
+--}
+
 pageSize = 20
 
 type alias Model =
@@ -23,6 +32,7 @@ type alias Model =
     , page: Int
   }
 
+--status of query
 type Status
   = Loading
   | Success (User.PreviewContainer)
@@ -32,11 +42,10 @@ type Msg
   = Test
   | Response (Result Http.Error (User.PreviewContainer))
   | Query String
-  | Next
-  | Previous
   | Empty
   | Jump Int
 
+--we initially load all users (paginated!)
 init: Nav.Key -> (Model, Cmd Msg)
 init key =
     (Model key Loading "" 1, getUsers "" 1)
@@ -49,11 +58,14 @@ update msg model =
         (model, Cmd.none)
 
     Jump int ->
+        --function that is used to jump to a different page of pagination.
         ({ model | page = int }, Cmd.batch [getUsers model.query int, Task.perform (\_ -> Empty) (Dom.setViewport 0 0)])
 
     Response response ->
         case response of
             Ok container ->
+                --if we get a response, we store the user list in our state. If the list is empty
+                --we count it as a failed query
                 let
                     users = container.users
                 in
@@ -62,24 +74,17 @@ update msg model =
                     else
                         ({ model | status = Success container }, Cmd.none)
             Err log ->
+                --if we get here, it means a connection error occured
                 ({ model | status = Failure "Connection error"}, Cmd.none)
 
     Query query ->
+        --function that is used to send a query to the server from input (onInput event)
+        --we always go back to page 1 if we fiddle with input!
         ({ model | query = query, status = Loading, page = 1 }, getUsers query 1 )
 
     Empty ->
+        --empty message that is used to move viewport to the top of the page.
         (model, Cmd.none)
-
-    Next ->
-        (model, Cmd.batch [ Nav.pushUrl model.key ("/users?page=" ++ String.fromInt(model.page + 1))
-        , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
-
-    Previous ->
-        if model.page /= 1 then
-            (model, Cmd.batch [ Nav.pushUrl model.key ("/users?page=" ++ String.fromInt(model.page - 1))
-            , Task.perform (\_ -> Empty) (Dom.setViewport 0 0) ])
-        else
-            (model, Cmd.none)
 
 view: Model -> Html Msg
 view model =
@@ -121,8 +126,10 @@ view model =
                         , div[ class "panel panel-default"
                         , style "margin" "auto"
                         , style "border" "none" ]
+                            --display user previews
                             (List.map User.showPreview users)
                         , div [ style "margin-top" "20px" ] [
+                            --here we find out the number of buttons required to be displayed and display them
                             div [ style "width" "30%"
                             , style "margin" "auto" ] ((List.range 1 ( ceiling ( toFloat container.total / toFloat pageSize ))) |> List.map (viewButton model) )
                             , div [ class "help-block" ] [ text ( String.fromInt(model.page) ++ "/" ++ String.fromInt( ceiling ( toFloat container.total / toFloat pageSize ) ) )]
@@ -138,6 +145,7 @@ view model =
 
 viewButton: Model -> Int -> Html Msg
 viewButton model num =
+    --button used to jump between pages of paginated output
     button[ class "btn btn-default"
     , if model.page == num then
         style "opacity" "0.3"
@@ -150,6 +158,7 @@ viewButton model num =
 
 getUsers: String -> Int -> Cmd Msg
 getUsers query page =
+    --query to get paginated users from server
     Http.get
     { url = Server.url ++ "/accounts/paginate" ++ "?q=" ++ query
             ++ "&page=" ++ (String.fromInt page)

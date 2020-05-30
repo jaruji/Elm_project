@@ -14,6 +14,11 @@ import Json.Decode.Extra as DecodeExtra
 import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
 import Json.Encode as Encode exposing (..)
 
+{--
+    Tab of profile that shows up only if the user is logged in and is viewing his own profile.
+    Allows user to change his bio and social network accounts.
+--}
+
 type alias Model =
   {
     user: User.Model
@@ -26,6 +31,7 @@ type alias Model =
 
 init: User.Model -> (Model, Cmd Msg)
 init user =
+    --on init need to fill inputs with values obtained from server during login
     (Model user user.bio (Social.getLink user.facebook) (Social.getLink user.twitter) (Social.getLink user.github) [], Cmd.none)
 
 type Msg
@@ -72,6 +78,8 @@ update msg model =
             ({model | github = string}, Cmd.none)
             
         UpdateSettings ->
+            --update valid only if the social network URL's entered are valid,
+            --otherwise warning pops up
             if Social.validate model.facebook "facebook" 
             && Social.validate model.twitter "twitter"
             && Social.validate model.github "github" then
@@ -145,6 +153,7 @@ view model =
             , style "width" "30%"
             , style "margin" "auto"
             , style "margin-bottom" "40px" ][
+                --show all warnings (only one at a time, was testing usage of List to store errors)
                 div[](List.map text model.warning)
            ]
         else
@@ -163,6 +172,7 @@ settingsEncoder model =
 
 patch: Model -> String -> Cmd Msg
 patch model token =
+    --update account with newly entered information
     Http.request
     {
         method = "PATCH"

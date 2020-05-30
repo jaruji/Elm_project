@@ -17,6 +17,11 @@ import Array exposing (..)
 import FeatherIcons as Icons
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 
+{--
+  Homepage contains the Carousel component. It also shows the last 5 posts that were uploaded
+  to the app and a list of most popular tags. Every 30 seconds, latest posts and tags update through
+  subscription (after 30s the request to obtain tags and posts are re-sent).
+--}
 
 type alias Model =
   {
@@ -47,7 +52,12 @@ type TagsStatus
 init: Maybe User.Model -> Nav.Key -> ( Model, Cmd Msg )
 init user key =
   ( 
-    Model key (Carousel.init (Array.fromList [ "assets/1.jpg", "assets/2.jpg", "assets/3.jpg", "assets/4.jpg", "assets/7.jpg" ]))
+    Model key (Carousel.init (Array.fromList [ "assets/carousel/1.jpg"
+                                            , "assets/carousel/2.jpg"
+                                            , "assets/carousel/3.jpg"
+                                            , "assets/carousel/4.jpg"
+                                            , "assets/carousel/5.jpg"
+                                            , "assets/carousel/6.jpg" ]))
     user Loading LoadingTags, Cmd.batch[ getLatest, getTrending ]
   )
 
@@ -55,6 +65,7 @@ update: Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     UpdateCarousel mesg -> 
+      --because Carousel does not use Cmd, we can convert the it Carousel.Model to Model like this
        ({ model | carousel = Carousel.update mesg model.carousel }, Cmd.none)
 
     Response response ->
@@ -72,6 +83,7 @@ update msg model =
           ({ model | tagStatus = FailureTags }, Cmd.none)
 
     Reload ->
+      --update latest posts and tags simultaneously
       (model, Cmd.batch[ getLatest, getTrending ])
 
 view: Model -> Html Msg
@@ -99,6 +111,7 @@ view model =
           text "Website created for sharing images - powered by Elm."
         ]
         , case model.user of
+          --text on page is different based on if user is logged in or not
           Just user ->
             div[][]
           Nothing ->
@@ -152,6 +165,7 @@ view model =
 
 showPost: Image.Preview -> Html Msg
 showPost post =
+    --show post which is used with List.map to show latest posts
     div[ class "media"
     , style "width" "70%"
     , style "margin" "auto"
@@ -205,6 +219,7 @@ getTrending =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+  --Use the subscription of Carousel component and additionaly every 30s reload tags and posts
   Sub.batch[ 
     Carousel.subscriptions model.carousel |> Sub.map UpdateCarousel
     , Time.every 30000 (\_ ->

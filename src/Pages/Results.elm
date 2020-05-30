@@ -15,7 +15,12 @@ import Json.Decode as Decode
 import Loading as Loader exposing (LoaderType(..), defaultConfig, render)
 
 
---the issue is that the result is nested...
+{--
+    This page is used to show the results of query, which is submitted by using the
+    SearchBar component. Because it modifies url by adding /search?q= _ , this page was
+    created to extract the query from the url and use it to query the server. The results
+    are both users and images, and they are not paginated. 
+--}
     
 type alias Model =
   {
@@ -24,11 +29,13 @@ type alias Model =
     , userStatus: UserStatus
   }
 
+--status of images
 type ImageStatus
   = LoadingImage
   | SuccessImage (Image.PreviewContainer)
   | FailureImage
 
+--status of users
 type UserStatus
   = LoadingUser
   | SuccessUser (User.PreviewContainer)
@@ -38,8 +45,10 @@ init: Maybe String -> (Model, Cmd Msg)
 init fragment =
     case fragment of
         Just q ->
+            --if query is encoded in url, we use it to request images and users which match the query
             (Model q LoadingImage LoadingUser, Cmd.batch [ Task.perform (\_ -> Empty) (Dom.setViewport 0 0), getUsers q, getPosts q])
         Nothing ->
+            --otherwise, we don't query anyting
             (Model "" LoadingImage LoadingUser, Cmd.none)
 
 type Msg

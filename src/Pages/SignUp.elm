@@ -15,17 +15,18 @@ import Loading as Loader
 import Crypto.Hash as Crypto
 import Server
 
-
-
--- MODEL
-
+{--
+  Page used for registration of user. Needs to handle errors and also dynamically check if
+  username or email are taken. If they are, the input will change it's border color to indicate
+  that the value is not valid. You wont be allowed to register until all input are valid, meaning
+  their border color is green.
+--}
 
 type alias Model =
   { name : String
   , password : String
   , passwordAgain : String
   , email : String
-  --, submit : Bool
   , warning : String
   , status : Status
   , verification: String
@@ -34,15 +35,9 @@ type alias Model =
   , errorEmail: Bool
   }
 
-
 init : (Nav.Key) -> (Model, Cmd Msg)
 init key =
   (Model "" "" "" "" "" Loading "" key False False, Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
-
-
-
--- UPDATE
-
 
 type Msg
   = Name String
@@ -84,6 +79,7 @@ update msg model =
       ({ model | warning = error }, Cmd.none)
 
     Submit ->
+      --handle all possible cases of errors when sign up button is pressed
       if model.name == "" then
         ({model | warning = "Enter your username"}, Cmd.none)
       else if validateUsername model.name == False then
@@ -350,6 +346,7 @@ subscriptions model =
 
 toString : Http.Error -> String
 toString err =
+    --display type of error as string
     case err of
         Timeout ->
             "Timeout exceeded"

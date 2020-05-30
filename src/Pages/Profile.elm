@@ -25,6 +25,14 @@ import Pages.Profile.History as HistoryTab
 import Pages.Profile.Favorites as FavoritesTab
 import Markdown
 
+{--
+    Display a profile of user. This page shows up both when you display your own profile
+    and when you display a profile of another user. Because signing in immediately downloads
+    all user info and stores it in application state, when you display your own profile a new request
+    is not necessary. Based on url, the app decides if the profile is yours. If it's not, it send a request
+    with the profile name (obtained from url) to obtain the info about the user whose profile you are viewing.
+--}
+
 postCount = 5
 
 type alias Model =
@@ -40,8 +48,10 @@ type alias Model =
 init: Nav.Key -> User.Model -> String -> ( Model, Cmd Msg)
 init key user fragment = 
     if fragment == user.username then
+        --if logged in user is viewing his own profile
         (Model user key Information fragment Success LoadingPosts, Cmd.batch [ getPosts fragment postCount ])
     else 
+        --if logged in user is viewing profile of someone else
         (Model user key Information fragment Loading LoadingPosts, Cmd.batch [ loadUser fragment, getPosts fragment postCount ])
 
 type Status
@@ -96,6 +106,7 @@ update msg model =
     SwitchFavorites ->
         ({ model | tab = Favorites (FavoritesTab.getModel (FavoritesTab.init model.user ) ) }, Cmd.map FavoritesMsg (FavoritesTab.getFavs model.fragment))
 
+    --same approach as in Main.elm, step functions are used to convert types
     SettingsMsg mesg ->
         case model.tab of
             Settings sett -> 
@@ -125,8 +136,10 @@ update msg model =
                 (model, Cmd.none)
 
     Select ->
+        --profile pictures can be only images
         (model, Select.file ["image/*"] GotFile)
 
+    --handle image upload (when changing profile picture)
     GotFile file ->
         let
             username = model.user.username
@@ -402,6 +415,7 @@ stringEncoder key value =
 
 put : File -> String -> Cmd Msg
 put file user = 
+  --upload profile picture
   Http.request
     { method = "PUT"
     , headers = [ Http.header "name" (File.name file), Http.header "user" user ]
@@ -416,6 +430,7 @@ loadUser: String -> Cmd Msg
 loadUser username = 
   Http.get
     { 
+    --load user info if the profile is not the users
     url = Server.url ++ "/account/user" ++ "?username=" ++ username
     , expect = Http.expectJson Response User.decodeUserNotLoggedIn
     }
@@ -430,6 +445,7 @@ getPostsEncoder username limit =
 
 getPosts: String -> Int -> Cmd Msg
 getPosts username limit =
+    --get posts of the user with limit value applied
     Http.get
     {   
         url = Server.url ++ "/account/posts" ++ "?username=" ++ username 
