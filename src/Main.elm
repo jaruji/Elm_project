@@ -312,6 +312,8 @@ subscriptions model =
       Post.subscriptions post |> Sub.map PostMsg
     Tags tags ->
       Tags.subscriptions tags |> Sub.map TagsMsg
+    Upload upload ->
+      Upload.subscriptions upload |> Sub.map UploadMsg
     _ ->
       Sub.none
 

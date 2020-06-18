@@ -5,7 +5,7 @@ import Browser.Dom as Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Http
+import Http exposing (..)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Json.Decode.Pipeline as Pipeline exposing (required, optional, hardcoded)
@@ -38,12 +38,13 @@ type alias Model =
   , warning: String
   , fileStatus: FileStatus
   , id: String
+  , fraction: Float
   }
 
 
 init : Maybe User.Model -> Nav.Key -> (Model, Cmd Msg)
 init user key =
-  (Model "" key user "" [] 0 "" "" "" Loading "" NotLoaded "", Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
+  (Model "" key user "" [] 0 "" "" "" Loading "" NotLoaded "" 0.0, Task.perform (\_ -> Empty) (Dom.setViewport 0 0))
 
 type Msg
   = Pick
@@ -58,6 +59,7 @@ type Msg
   | RemoveImg
   | KeyHandler Int
   | Tag String
+  | Progress Http.Progress
 
 type Status
   = Loading
@@ -76,7 +78,7 @@ update msg model =
       
     Pick -> 
       --allow only image files to be picked
-      (model, Select.file ["image/*"] GotFiles)
+      (model, Select.file ["image/*", "application/pdf"] GotFiles)
 
     Title title ->
       ({ model | title = title }, Cmd.none)
@@ -88,9 +90,16 @@ update msg model =
       ( 
         --store the file uploaded to browser in a Loaded Msg, save information and get the url
         --of this file so we can display the preview
-        { model | fileSize = File.size file, mime = File.mime file, fileStatus = Loaded file }
+        { model | fileSize = File.size file, mime = File.mime file, fileStatus = Loaded file, fraction = 0.0 }
         , Task.perform GetPreview <| File.toUrl file
       )
+
+    Progress progress ->
+      case progress of
+        Http.Sending f ->
+          ({ model | fraction = Http.fractionSent f }, Cmd.none)
+        Http.Receiving _ ->
+          ( model, Cmd.none )
 
     GetPreview url ->
       --get url of image uploaded to browser
@@ -231,12 +240,15 @@ view model =
           "" ->
             text ""
           "Loading" ->
-            div [ class "alert alert-info"
-            , style "width" "50%"
-            , style "margin" "auto"
-            , style "margin-bottom" "20px" ][
-              Loader.render Loader.Circle Loader.defaultConfig Loader.On
-              , text model.warning 
+            div [ class "progress", style "width" "50%", style "margin" "auto" ][
+              div [ class "progress-bar progress-bar-info"
+              , style "width" (String.fromInt (round (100 * model.fraction)) ++ "%")
+              , attribute "aria-valuemax" "100"
+              , attribute "aria-valuemin" "0"
+              , attribute "aria-valuenow" (String.fromInt (round (100 * model.fraction)))
+              , attribute "role" "progressbar"
+              , style "margin" "auto" ][
+              ]
             ]
           _ ->
             div [ class "alert alert-warning"
@@ -288,6 +300,10 @@ cancelButton msg offset =
   ][ span [ class "glyphicon glyphicon-remove" ] [] ]
 
 
+subscriptions: Model -> Sub Msg
+subscriptions model =
+  Http.track "upload" Progress
+
 keyPress: (Int -> msg) -> Attribute msg
 keyPress tagger =
   --listen to key press
@@ -307,7 +323,7 @@ put model file token =
       , body = Http.fileBody file
       , expect = Http.expectJson UploadResponse (Decode.field "response" Decode.string)
       , timeout = Nothing
-      , tracker = Nothing
+      , tracker = Just "upload"
     }
 
 encodeMetadata: Model -> String -> Encode.Value
