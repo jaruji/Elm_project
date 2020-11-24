@@ -401,7 +401,7 @@ async function routes(fastify) {
                         await db.collection('images').findOne({id: id}, function(err, result){
                             if(result){
                                 //clean up
-                                fs.unlinkSync("./server/data/img/" + result.file)
+                                fs.unlinkSync("../server/data/img/" + result.file)
                             }
                         })
                     }
@@ -424,7 +424,7 @@ async function routes(fastify) {
     //so in the next step, it's metadata can be uploaded with this ID as it's parameter.
     fastify.put('/upload/image', async(req, res) => {
         //log this = user has uploaded new picture
-        let dir = "./server/data/img"
+        let dir = "../server/data/img"
         let auth = req.headers.auth
         console.log("Uploading a file to the server")
         let ID = crypto.randomBytes(10).toString('hex')
@@ -464,7 +464,7 @@ async function routes(fastify) {
                 //accounts with weird names, that could possibly cause problems or even crash the server
                 let filename = result._id.toHexString() + path.extname(req.headers["name"]);    //get name of received file
                 let link = "http://localhost:3000/img/profile/" + filename
-                let dir = "./server/data/img/profile/"
+                let dir = "../server/data/img/profile/"
                 if(result.profilePic != null){
                     let oldAvatar = result.profilePic.split('/').pop()
                     fs.unlinkSync("./server/data/img/profile/" + oldAvatar)
@@ -912,7 +912,7 @@ async function routes(fastify) {
                 //return only unique tags
                 var arr = []
                 results.forEach(key =>{
-                    if(key.tags === null)
+                    if(key.tags === null || key.tags === undefined)
                         return
                     key.tags.forEach(tag =>{
                         if(arr.includes(tag)){
