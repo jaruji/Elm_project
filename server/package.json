@@ -16,7 +16,7 @@
     "fastify": "^2.10.0",
     "fastify-cors": "^3.0.2",
     "fastify-multipart": "^1.0.5",
-    "fastify-static": "^2.6.0",
+    "fastify-static": "^4.2.4",
     "generate-pincode": "^5.0.3",
     "mongodb": "^3.5.4",
     "nodemailer": "^6.4.4",
